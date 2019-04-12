@@ -1,8 +1,11 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
-
+from flask_bcrypt import Bcrypt
+from flask_marshmallow import Marshmallow
 
 db = SQLAlchemy()
+ma = Marshmallow()
+bc = Bcrypt()
 
 
 def create_app(test_config=None):
@@ -16,12 +19,21 @@ def create_app(test_config=None):
 
     if test_config is None:
         # load the instance config if it exists, when not testing
-        app.config.from_pyfile('config.py', silent=False)
+        app.config.from_pyfile('config.py', silent=True)
     else:
         app.config.from_mapping(test_config)
 
-    @app.route('/')
-    def hello():
-        return 'Hello, world!'
+    # INIT
+
+    db.init_app(app)
+    ma.init_app(app)
+    bc.init_app(app)
+
+    from auth import models
+    models.init_db(app)
+
+    from auth import auth
+
+    app.register_blueprint(auth.bp)
 
     return app

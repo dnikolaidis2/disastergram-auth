@@ -3,4 +3,5 @@ node_modules
 tmp
 vendor
 .ides/
-src/__pycache__/
+auth/__pycache__/
+instance/

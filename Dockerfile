@@ -14,6 +14,4 @@ RUN pip install --no-cache -r requirements.txt
 COPY ./auth .
 
 ENV FLASK_APP /user/src/app/auth
-#ENV FLASK_ENV development
-#ENV FLASK_DEBUG 1
 CMD ["flask", "run"]

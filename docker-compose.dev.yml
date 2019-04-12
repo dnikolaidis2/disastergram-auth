@@ -3,4 +3,4 @@ version: '3.7'
 services:
   auth:
     volumes:
-      - ./src:/user/src/app
+      - .:/user/src/app

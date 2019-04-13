@@ -11,10 +11,12 @@ class User(db.Model):
     def check_password(self, password):
         return bc.check_password_hash(self.password, password)
 
+    def set_password(self, password):
+        self.password = bc.generate_password_hash(password.__str__()).decode('utf-8')
+
     def __init__(self, **kwargs):
-        newkargs = kwargs
-        newkargs['password'] = bc.generate_password_hash(kwargs['password'].__str__()).decode('utf-8')
-        super(User, self).__init__(**newkargs)
+        kwargs['password'] = bc.generate_password_hash(kwargs['password'].__str__()).decode('utf-8')
+        super(User, self).__init__(**kwargs)
 
     def __repr__(self):
         return '<User %r>' % self.username

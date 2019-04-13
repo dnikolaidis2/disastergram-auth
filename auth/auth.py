@@ -1,12 +1,9 @@
 from flask import Blueprint, request, abort, Response, current_app, jsonify
-
 from auth.models import UserSchema, User
-
 from auth import db
-
 from functools import wraps
-
-import jwt, time
+from datetime import datetime, timedelta
+import jwt
 
 
 bp = Blueprint('auth', __name__, url_prefix='/auth')
@@ -29,6 +26,34 @@ def require_auth():
     def decorator(f):
         @wraps(f)
         def wrapped(*args, **kwargs):
+            # check if token was sent with request
+            if request.args == {}:
+                abort(400)
+
+            # check if token is not empty
+            token = request.args['token']
+            if token == '':
+                abort(400)
+
+            # verify token
+            try:
+                jwt.decode(token,
+                           current_app['SECRET_KEY'],     # TODO: pass as param for other servers
+                           leeway=timedelta(seconds=30),  # give 30 second leeway on time checks
+                           issuer='auth_server')
+            except jwt.InvalidSignatureError:
+                # signature of token does not match
+                abort(400)
+            except jwt.ExpiredSignatureError:
+                # token has expires
+                abort(400)
+            except jwt.InvalidIssuerError:
+                # token issuer is invalid
+                abort(400)
+            except jwt.ImmatureSignatureError:
+                # token has been used to fast
+                abort(400)
+
             return f(*args, **kwargs)
 
         return wrapped
@@ -69,17 +94,41 @@ def user_get(username):
             str = str + user.username + '  '
         return str
     else:
+        # TODO: Use the decorator after removing above functionality
+        # actual func code
+        # check if token was sent with request
+        if request.args == {}:
+            abort(400)
+
+        # check if token is not empty
+        token = request.args['token']
+        if token == '':
+            abort(400)
+
+        # verify token
+        try:
+            jwt.decode(token,
+                       current_app['SECRET_KEY'],
+                       leeway=timedelta(seconds=30),        # give 30 second leeway on time checks
+                       issuer='auth_server')
+        except jwt.InvalidSignatureError:
+            # signature of token does not match
+            abort(400)
+        except jwt.ExpiredSignatureError:
+            # token has expires
+            abort(400)
+        except jwt.InvalidIssuerError:
+            # token issuer is invalid
+            abort(400)
+        except jwt.ImmatureSignatureError:
+            # token has been used to fast
+            abort(400)
 
         get_user = User.query.filter(User.username == username).one()
         return user_schema.jsonify(get_user)
 
-    # Maybe check if they have the required perms?
-    # User
-    # Return user. Redirecting to its profile page
-    # return
 
-
-@bp.route('/login', methods=['POST'])
+@bp.route('/token', methods=['POST'])
 @enforce_json()
 def login():
     # TODO: could you use marshal.dump to do some input testing?
@@ -94,9 +143,9 @@ def login():
 
     payload = {
         'iss': 'auth_server',                               # TODO: WHO ARE WE
-        'sub': request.json['username'],
-        'exp': int(time.mktime(time.gmtime())) + 60*10,     # 10 minute token
-        'nbf': int(time.mktime(time.gmtime()))
+        'sub': request.json['username'],                    # TODO: Should we hash username or just plain text?
+        'exp': datetime.utcnow() + timedelta(minutes=10),   # 10 minute token
+        'nbf': datetime.utcnow()
     }
 
     token = jwt.encode(payload, current_app.config['SECRET_KEY'])

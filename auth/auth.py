@@ -68,17 +68,22 @@ def user(username, token):
             return jsonify(error='Invalid number of arguments'), 400
 
         # Abort if user already exists
-        req_user = User.query.filter(User.username == username)
+        req_user = User.query.filter(User.username == username).one_or_none()
         if req_user is None:
-            return jsonify(error= 'User ' + username + ' does not exist'), 400
+            return jsonify(error='User ' + username + ' does not exist'), 400
 
-        if User.query.filter(User.username == request.json['username']).one() is not None:
-            return jsonify(error='Username ' + request.json['username'] + ' has already been taken'), 400
+        if User.query.filter(User.username == request.json['username']).count() != 1:
+            req_user.username = request.json['username']
 
-        req_user.username = request.json['username']
+        # if User.query.filter(User.username == request.json['username']).count() != 1:
+
         req_user.set_password(request.json['password'])
 
-        db.commit()
+        db.session.commit()
+
+        # TODO give user another token
+
+        return jsonify(status='OK')
 
     elif request.method == 'PATCH':
         pass
@@ -101,12 +106,12 @@ def login():
         if len(request.json) != 2:  # only one username and password pair expected
             return jsonify(error='Invalid number of arguments'), 400
 
-        user = User.query.filter(User.username == request.json['username']).one()
+        req_user = User.query.filter(User.username == request.json['username']).one_or_none()
 
-        if user is None:
+        if req_user is None:
             return jsonify(error='Incorrect username or password'), 400
 
-        if not user.check_password(request.json['password']):
+        if not req_user.check_password(request.json['password']):
             return jsonify(error='Incorrect username or password'), 400
 
         payload = {

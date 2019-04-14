@@ -11,7 +11,9 @@ WORKDIR /user/src/app
 COPY requirements.txt ./
 RUN pip install --no-cache -r requirements.txt
 
-COPY ./auth .
+RUN mkdir auth
+
+COPY ./auth ./auth
 
 ENV FLASK_APP /user/src/app/auth
-CMD ["flask", "run"]
+CMD ["flask", "run", "--host", "0.0.0.0"]

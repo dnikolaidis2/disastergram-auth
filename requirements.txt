@@ -8,3 +8,5 @@ flask-marshmallow==0.10.0
 marshmallow-sqlalchemy==0.16.2
 flask-bcrypt==0.7.1
 pyjwt==1.7.1
+cryptography==2.6.1
+flask-apispec==0.8.0

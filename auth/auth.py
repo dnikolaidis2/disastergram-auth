@@ -1,8 +1,10 @@
-from flask import Blueprint, request, Response, current_app, jsonify
+from flask import Blueprint, request, Response, current_app, jsonify, abort
 from auth.models import UserSchema, User
 from auth import db
 from datetime import datetime, timedelta
 from auth.utils import enforce_json, require_auth, check_token
+from flask_apispec import use_kwargs, doc
+from marshmallow import fields
 import jwt
 
 
@@ -19,26 +21,46 @@ def bad_request_handler(error):
     return jsonify(error=error.description), 403
 
 
+register_dict = {'username': fields.Str(), 'password': fields.Str()}
+
+
+@doc(description='User registration endpoint',
+     params={
+        'username': {
+            'description': 'Desired username',
+            'in': 'header',
+            'type': 'string',
+            'required': True
+        },
+        'password': {
+            'description': 'Users password',
+            'in': 'header',
+            'type': 'string',
+            'required': True
+        }
+     },
+     responses={
+         '400: BadRequest': {
+             "description": "Given input could not be validated"
+         }
+     })
 @bp.route('/register', methods=['POST'])
 @bp.route('/user', methods=['POST'])
 @enforce_json()
-def user_register():
+@use_kwargs(register_dict, apply=True)
+def user_register(**kwargs):
     # Validate incoming json
-    data = UserSchema(exclude=['id']).loads(request.data)
-    if data.errors != {}:
-        return jsonify(errors=data.errors), 400
-
-    if len(request.json) != 2:         # only one username and password pair expected
-        return jsonify(error='Invalid number of arguments'), 400
+    if kwargs.keys() != register_dict.keys():
+        abort(400, 'Invalid arguments')
 
     # Abort if user already exists
-    if User.query.filter(User.username == request.json['username']).count() != 0:
-        return jsonify(error='Username ' + request.json['username'] + ' has already been taken'), 400
+    if User.query.filter(User.username == kwargs['username']).count() != 0:
+        abort(400, 'Username ' + kwargs['username'] + ' has already been taken')
 
     # 1. Creates new user according to request params
     # 2. Add to db
     # 3. Commit changes
-    new_user = User(username=request.json['username'], password=request.json['password'])
+    new_user = User(username=kwargs['username'], password=kwargs['password'])
     db.session.add(new_user)
     db.session.commit()
 
@@ -46,6 +68,29 @@ def user_register():
     return Response(status=201)
 
 
+# register_dict = {'username': fields.Str(), 'password': fields.Str()}
+#
+#
+# @doc(description='User registration endpoint',
+#      params={
+#         'username': {
+#             'description': 'Desired username',
+#             'in': 'header',
+#             'type': 'string',
+#             'required': True
+#         },
+#         'password': {
+#             'description': 'Users password',
+#             'in': 'header',
+#             'type': 'string',
+#             'required': True
+#         }
+#      },
+#      responses={
+#          '400: BadRequest': {
+#              "description": "Give input could not be validated"
+#          }
+#      })
 @bp.route('/user/<username>', methods=['GET', 'PUT', 'PATCH', 'DELETE'])
 @enforce_json()
 @require_auth()
@@ -146,3 +191,8 @@ def login():
         return jsonify(token=token.decode('utf-8'))
     elif request.method == 'DELETE':
         pass
+
+
+@bp.route('/pubkey')
+def pub_key():
+    return jsonify(public_key=current_app.config['PUBLIC_KEY'].decode('utf-8'))

@@ -68,11 +68,6 @@ def user_register(**kwargs):
     return Response(status=201)
 
 
-@bp.route('/')
-def test():
-    return jsonify(test='SUCCESS ples ples')
-
-
 # register_dict = {'username': fields.Str(), 'password': fields.Str()}
 #
 #

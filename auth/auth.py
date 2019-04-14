@@ -70,7 +70,7 @@ def user_register(**kwargs):
 
 @bp.route('/')
 def test():
-    return jsonify(test='SUCCESS')
+    return jsonify(test='SUCCESS ples ples')
 
 
 # register_dict = {'username': fields.Str(), 'password': fields.Str()}

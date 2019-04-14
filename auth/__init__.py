@@ -5,6 +5,7 @@ from flask_marshmallow import Marshmallow
 from apispec import APISpec
 from apispec.ext.marshmallow import MarshmallowPlugin
 from flask_apispec.extension import FlaskApiSpec
+import os
 
 db = SQLAlchemy()
 ma = Marshmallow()
@@ -14,7 +15,7 @@ docs = FlaskApiSpec()
 
 def create_app(test_config=None):
     # create the app configuration
-    app = Flask(__name__, instance_relative_config=True)
+    app = Flask(__name__, instance_path='/user/src/app/instance')
     app.config.from_mapping(
         SECRET_KEY='temp',
         SQLALCHEMY_DATABASE_URI='postgresql+psycopg2://postgres:1234@db/postgres',
@@ -23,7 +24,7 @@ def create_app(test_config=None):
 
     if test_config is None:
         # load the instance config if it exists, when not testing
-        app.config.from_pyfile('config.py', silent=True)
+        app.config.from_pyfile('/user/src/app/instance/config.py', silent=True)
     else:
         app.config.from_mapping(test_config)
 

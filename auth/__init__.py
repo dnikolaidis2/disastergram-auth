@@ -54,5 +54,7 @@ def create_app(test_config=None):
     app.register_blueprint(auth.bp)
 
     docs.register(auth.user_register, blueprint='auth')
+    docs.register(auth.pub_key, blueprint='auth')
+    docs.register(auth.user_read, blueprint='auth')
 
     return app

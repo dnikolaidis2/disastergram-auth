@@ -1,6 +1,6 @@
 from flask import Blueprint, request, Response, current_app, jsonify, abort
 from auth.models import UserSchema, User
-from auth import db
+from auth import db, docs
 from datetime import datetime, timedelta
 from auth.utils import enforce_json, require_auth, check_token
 from flask_apispec import use_kwargs, doc
@@ -24,7 +24,8 @@ def bad_request_handler(error):
 register_dict = {'username': fields.Str(), 'password': fields.Str()}
 
 
-@doc(description='User registration endpoint',
+@doc(tags=['user'],
+     description='User registration endpoint',
      params={
         'username': {
             'description': 'Desired username',
@@ -41,7 +42,10 @@ register_dict = {'username': fields.Str(), 'password': fields.Str()}
      },
      responses={
          '400: BadRequest': {
-             "description": "Given input could not be validated"
+             "description": "Given input could not be validated",
+             "example": {
+                 "error": "Username flamboozle has already been taken"
+             }
          },
          '201: Created': {
              "description": "Successfully registered user"
@@ -71,72 +75,92 @@ def user_register(**kwargs):
     return Response(status=201)
 
 
-# register_dict = {'username': fields.Str(), 'password': fields.Str()}
-#
-#
-# @doc(description='User registration endpoint',
-#      params={
-#         'username': {
-#             'description': 'Desired username',
-#             'in': 'header',
-#             'type': 'string',
-#             'required': True
-#         },
-#         'password': {
-#             'description': 'Users password',
-#             'in': 'header',
-#             'type': 'string',
-#             'required': True
-#         }
-#      },
-#      responses={
-#          '400: BadRequest': {
-#              "description": "Give input could not be validated"
-#          }
-#      })
-@bp.route('/user/<username>', methods=['GET', 'PUT', 'PATCH', 'DELETE'])
+@doc(tags=['user'],
+     description='Get user info based on username',
+     params={
+        'username': {
+            'description': 'Users username',
+            'in': 'path',
+            'type': 'string',
+            'required': True
+        },
+        'token': {
+            'description': 'Authentication token signed by auth server',
+            'in': 'query',
+            'type': 'string',
+            'required': True
+        }
+     },
+     responses={
+         '400: BadRequest': {
+             "description": "Give input could not be validated",
+             "example": {
+                 "error": "Username flamboozle does not exist"
+             }
+         },
+         '403: Forbidden': {
+             "description": "Authentication from token has failed",
+             "example": {
+                 "error": "Invalid token signature"
+             }
+         },
+         '200: OK': {
+             "description": "Query successfull",
+             "example": {
+                 "username": "flamboozle"
+             }
+         }
+     })
+@bp.route('/user/<username>')
 @enforce_json()
 @require_auth()
-def user(username, token):
-    if request.method == 'GET':
-        user_schema = UserSchema(exclude=['id', 'password'])
+def user_read(username, token):
+    user_schema = UserSchema(exclude=['id', 'password'])
 
-        req_user = User.query.filter(User.username == username).one()
-        if req_user in None:
-            return jsonify(error= 'User ' + request.json['username'] + ' does not exist'), 400
+    req_user = User.query.filter(User.username == username).one()
+    if req_user in None:
+        return jsonify(error='User ' + request.json['username'] + ' does not exist'), 400
 
-        return user_schema.jsonify(req_user)
-    elif request.method == 'PUT':
-        # Validate incoming json
-        data = UserSchema(exclude=['id']).loads(request.data)
-        if data.errors != {}:
-            return jsonify(errors=data.errors), 400
+    return user_schema.jsonify(req_user)
 
-        if len(request.json) != 3:  # only one username and password pair expected
-            return jsonify(error='Invalid number of arguments'), 400
 
-        # Abort if user already exists
-        req_user = User.query.filter(User.username == username).one_or_none()
-        if req_user is None:
-            return jsonify(error='User ' + username + ' does not exist'), 400
+@bp.route('/user/<username>', methods=['PUT', 'PATCH', 'DELETE'])
+def user_replace(username):
+    # Validate incoming json
+    data = UserSchema(exclude=['id']).loads(request.data)
+    if data.errors != {}:
+        return jsonify(errors=data.errors), 400
 
-        if User.query.filter(User.username == request.json['username']).count() != 1:
-            req_user.username = request.json['username']
+    if len(request.json) != 3:  # only one username and password pair expected
+        return jsonify(error='Invalid number of arguments'), 400
 
-        # if User.query.filter(User.username == request.json['username']).count() != 1:
+    # Abort if user already exists
+    req_user = User.query.filter(User.username == username).one_or_none()
+    if req_user is None:
+        return jsonify(error='User ' + username + ' does not exist'), 400
 
-        req_user.set_password(request.json['password'])
+    if User.query.filter(User.username == request.json['username']).count() != 1:
+        req_user.username = request.json['username']
 
-        db.session.commit()
+    # if User.query.filter(User.username == request.json['username']).count() != 1:
 
-        # TODO give user another token
+    req_user.set_password(request.json['password'])
 
-        return jsonify(status='OK')
+    db.session.commit()
 
-    elif request.method == 'PATCH':
-        pass
-    elif request.method == 'DELETE':
-        pass
+    # TODO give user another token
+
+    return jsonify(status='OK')
+
+
+@bp.route('/user/<username>', methods=['PATCH'])
+def user_update(username):
+    return jsonify(test=username)
+
+
+@bp.route('/user/<username>', methods=['DELETE'])
+def user_del(username):
+    return jsonify(test=username)
 
 
 @bp.route('/logout', methods=['DELETE'])
@@ -196,6 +220,25 @@ def login():
         pass
 
 
+@doc(tags=['public_key'],
+     description='Authentication servers public key',
+     responses={
+         '200': {
+             "description": "The servers public key is returned as a json object",
+             "example": {
+                 "public_key": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDNE1RK4tX2bGmA5ZWco+bPy/HS6v9yTg91ut9W6AtC4d+"
+                                  "Ie2o6IzPxVvJENYziIzteTGyEdQiW3NJP0lx1f6Zgjd9u2/h1PJl9MHYwZFJ2IpzimhDaASxv9CmDL7rzrZ"
+                                  "jupWCy1gwOjWQy8TQ1+Ema1w5dSXMA7GdU7JR745+CrXhTJrE9rQdIFuZeRQP5Q6zooAWMoCHax2xuv8v6r"
+                                  "9tP3J7HLSTSoi4I+/9M5ztLHh1CjPyg/btR118Z/BRRZvaPrXy0U+GdoEfQSAjLC0AEgaa1Z0Z0bk2NLc4/"
+                                  "kDIEW7w67rc5v53ewXO/I+pzUOxrAIO6PKu149JAdd/AibdXComjNG31KB6CQcGyG/PQU0hEBk96p2BGFyy"
+                                  "gtOJFr4hNP9usYHt2xFf+kEBkXuTMpKd8rwhIHK/SB+KkV0eHFP7lK9SFZvcQ+oSaJawJE1BBEm8ytvAtfP"
+                                  "NAchl6YJPLxfodXjDZ7QmtmnNODxCOhc+7EgH0VHZrLRQVQFSzw8bM9xQ7DCI7fglOSuHKwkN2E/HsKuD19"
+                                  "i5UEpp+9wq+WMD719ZVwXkjbxKWq8MLDdIZNlYqNn9l8/NMdVzI6TdeeAPZESdNjXhlgrxlw0LpEuWBNmFe"
+                                  "iTXsZstCmDCC6OOZDJApDIS8EIQh6TiTuA7v1FT1tCfNCG29JmI+iDBCeQ== dimitris@Gideon"
+
+             }
+         }
+     })
 @bp.route('/pubkey')
 def pub_key():
     return jsonify(public_key=current_app.config['PUBLIC_KEY'].decode('utf-8'))

@@ -5,7 +5,6 @@ from flask_marshmallow import Marshmallow
 from apispec import APISpec
 from apispec.ext.marshmallow import MarshmallowPlugin
 from flask_apispec.extension import FlaskApiSpec
-import os
 
 db = SQLAlchemy()
 ma = Marshmallow()
@@ -56,5 +55,6 @@ def create_app(test_config=None):
     docs.register(auth.user_register, blueprint='auth')
     docs.register(auth.pub_key, blueprint='auth')
     docs.register(auth.user_read, blueprint='auth')
+    docs.register(auth.user_replace, blueprint='auth')
 
     return app

@@ -1,6 +1,6 @@
 from flask import Blueprint, request, Response, current_app, jsonify, abort
 from auth.models import UserSchema, User
-from auth import db, docs
+from auth import db
 from datetime import datetime, timedelta
 from auth.utils import enforce_json, require_auth, check_token
 from flask_apispec import use_kwargs, doc
@@ -21,7 +21,8 @@ def bad_request_handler(error):
     return jsonify(error=error.description), 403
 
 
-register_dict = {'username': fields.Str(), 'password': fields.Str()}
+register_dict = {'username': fields.Str(required=True),
+                 'password': fields.Str(required=True)}
 
 
 @doc(tags=['user'],
@@ -29,13 +30,13 @@ register_dict = {'username': fields.Str(), 'password': fields.Str()}
      params={
         'username': {
             'description': 'Desired username',
-            'in': 'header',
+            'in': 'body',
             'type': 'string',
             'required': True
         },
         'password': {
             'description': 'Users password',
-            'in': 'header',
+            'in': 'body',
             'type': 'string',
             'required': True
         }
@@ -93,7 +94,7 @@ def user_register(**kwargs):
      },
      responses={
          '400: BadRequest': {
-             "description": "Give input could not be validated",
+             "description": "Given input could not be validated",
              "example": {
                  "error": "Username flamboozle does not exist"
              }
@@ -105,7 +106,7 @@ def user_register(**kwargs):
              }
          },
          '200: OK': {
-             "description": "Query successfull",
+             "description": "Query successful",
              "example": {
                  "username": "flamboozle"
              }
@@ -117,38 +118,89 @@ def user_register(**kwargs):
 def user_read(username, token):
     user_schema = UserSchema(exclude=['id', 'password'])
 
-    req_user = User.query.filter(User.username == username).one()
+    req_user = User.query.filter(User.username == username).one_or_none()
     if req_user in None:
         return jsonify(error='User ' + request.json['username'] + ' does not exist'), 400
 
     return user_schema.jsonify(req_user)
 
 
-@bp.route('/user/<username>', methods=['PUT', 'PATCH', 'DELETE'])
-def user_replace(username):
+user_replace_dict = {'token': fields.Str(required=True),
+                     'new_username': fields.Str(required=True),
+                     'new_password': fields.Str(required=True)}
+
+
+@doc(tags=['user'],
+     description='completely replace users info with new info',
+     params={
+        'username': {
+            'description': 'Users username',
+            'in': 'path',
+            'type': 'string',
+            'required': True
+        },
+        'token': {
+            'description': 'Authentication token signed by auth server',
+            'in': 'body',
+            'type': 'string',
+            'required': True
+        },
+        'new_username': {
+            'description': 'New user username',
+            'in': 'body',
+            'type': 'string',
+            'required': True
+        },
+        'new_password': {
+            'description': 'New user password',
+            'in': 'body',
+            'type': 'string',
+            'required': True
+        }
+     },
+     responses={
+         '400: BadRequest': {
+             "description": "Given input could not be validated",
+             "example": {
+                 "error": "Username flamboozle does not exist"
+             }
+         },
+         '403: Forbidden': {
+             "description": "Authentication from token has failed",
+             "example": {
+                 "error": "Invalid token signature"
+             }
+         },
+         '200: OK': {
+             "description": "Query successful",
+             "example": {
+                 "status": "OK"
+             }
+         }
+     })
+@bp.route('/user/<username>', methods=['PUT'])
+@use_kwargs(user_replace_dict, apply=True)
+@enforce_json()
+@require_auth()
+def user_replace(username, **kwargs):
     # Validate incoming json
-    data = UserSchema(exclude=['id']).loads(request.data)
-    if data.errors != {}:
-        return jsonify(errors=data.errors), 400
+    if kwargs.keys() != user_replace_dict.keys():
+        abort(400, 'Invalid arguments')
 
-    if len(request.json) != 3:  # only one username and password pair expected
-        return jsonify(error='Invalid number of arguments'), 400
-
-    # Abort if user already exists
+    # Could not find user
     req_user = User.query.filter(User.username == username).one_or_none()
     if req_user is None:
         return jsonify(error='User ' + username + ' does not exist'), 400
 
-    if User.query.filter(User.username == request.json['username']).count() != 1:
-        req_user.username = request.json['username']
+    # Username has not changed
+    if req_user.username == kwargs['new_username']:
+        return jsonify(error='Users username has not changed please user this endpoint '
+                             'for replacing resource not updating it'), 400
 
-    # if User.query.filter(User.username == request.json['username']).count() != 1:
-
-    req_user.set_password(request.json['password'])
+    req_user.username = kwargs['new_username']
+    req_user.set_password(kwargs['new_password'])
 
     db.session.commit()
-
-    # TODO give user another token
 
     return jsonify(status='OK')
 

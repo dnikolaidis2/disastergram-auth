@@ -16,4 +16,6 @@ RUN mkdir auth
 COPY ./auth ./auth
 
 ENV FLASK_APP /user/src/app/auth
+ENV FLASK_ENV development
+ENV FLASK_DEBUG 1
 CMD ["flask", "run", "--host", "0.0.0.0"]

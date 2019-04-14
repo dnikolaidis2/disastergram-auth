@@ -42,6 +42,9 @@ register_dict = {'username': fields.Str(), 'password': fields.Str()}
      responses={
          '400: BadRequest': {
              "description": "Given input could not be validated"
+         },
+         '201: Created': {
+             "description": "Successfully registered user"
          }
      })
 @bp.route('/register', methods=['POST'])

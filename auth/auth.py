@@ -100,7 +100,7 @@ def user_register(**kwargs):
              }
          },
          '403: Forbidden': {
-             "description": "Authentication from token has failed",
+             "description": "Authentication off token has failed",
              "example": {
                  "error": "Invalid token signature"
              }
@@ -119,7 +119,7 @@ def user_read(username, token):
     user_schema = UserSchema(exclude=['id', 'password'])
 
     req_user = User.query.filter(User.username == username).one_or_none()
-    if req_user in None:
+    if req_user is None:
         return jsonify(error='User ' + request.json['username'] + ' does not exist'), 400
 
     return user_schema.jsonify(req_user)
@@ -166,7 +166,7 @@ user_replace_dict = {'token': fields.Str(required=True),
              }
          },
          '403: Forbidden': {
-             "description": "Authentication from token has failed",
+             "description": "Authentication off token has failed",
              "example": {
                  "error": "Invalid token signature"
              }
@@ -210,9 +210,46 @@ def user_update(username):
     return jsonify(test=username)
 
 
+user_delete_dict = {'token': fields.Str(required=True)}
+
+
+@doc(tags=['user'],
+     description='Deletes user',
+     params={
+        'token': {
+            'description': 'Authentication token signed by auth server',
+            'in': 'body',
+            'type': 'string',
+            'required': True
+        }
+     },
+     responses={
+         '400: BadRequest': {
+             "description": "Given input could not be validated",
+             "example": {
+                 "error": "Token is not part of request form"
+             }
+         },
+         '403: Forbidden': {
+             "description": "Authentication off token has failed",
+             "example": {
+                 "error": "Invalid token signature"
+             }
+         },
+         '200: OK': {
+             "description": "Query successful",
+             "example": {
+                 "status": "OK"
+             }
+         }
+     })
 @bp.route('/user/<username>', methods=['DELETE'])
-def user_del(username):
-    return jsonify(test=username)
+@use_kwargs(user_delete_dict)
+@enforce_json()
+@require_auth()
+def user_del(username, **kwargs):
+
+    return jsonify(status='OK')
 
 
 @bp.route('/logout', methods=['DELETE'])
@@ -287,7 +324,6 @@ def login():
                                   "NAchl6YJPLxfodXjDZ7QmtmnNODxCOhc+7EgH0VHZrLRQVQFSzw8bM9xQ7DCI7fglOSuHKwkN2E/HsKuD19"
                                   "i5UEpp+9wq+WMD719ZVwXkjbxKWq8MLDdIZNlYqNn9l8/NMdVzI6TdeeAPZESdNjXhlgrxlw0LpEuWBNmFe"
                                   "iTXsZstCmDCC6OOZDJApDIS8EIQh6TiTuA7v1FT1tCfNCG29JmI+iDBCeQ== dimitris@Gideon"
-
              }
          }
      })

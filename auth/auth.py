@@ -357,6 +357,40 @@ login_dict = {'username': fields.String(required=True),
               'password': fields.String(required=True)}
 
 
+@doc(tags=['token'],
+     description='Login as user username with password',
+     params={
+         'username': {
+             'description': 'Users username',
+             'in': 'body',
+             'type': 'string',
+             'required': True
+         },
+         'password': {
+            'description': 'Users password',
+            'in': 'body',
+            'type': 'string',
+            'required': True
+         }
+     },
+     responses={
+         '400: BadRequest': {
+             "description": "Given input could not be validated",
+             "example": {
+                 "error": "Incorrect username or password"
+             }
+         },
+         '200: OK': {
+             "description": "Query successful",
+             "example": {
+                 "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJPbmxpbmUgSldUIEJ1aWxkZXIiLCJpYXQiOjE1NTU4ODQ"
+                          "1NTksImV4cCI6MTU4NzQyMDU1OSwiYXVkIjoid3d3LmV4YW1wbGUuY29tIiwic3ViIjoianJvY2tldEBleGFtcGxlLmN"
+                          "vbSIsIkdpdmVuTmFtZSI6IkpvaG5ueSIsIlN1cm5hbWUiOiJSb2NrZXQiLCJFbWFpbCI6Impyb2NrZXRAZXhhbXBsZS5"
+                          "jb20iLCJSb2xlIjpbIk1hbmFnZXIiLCJQcm9qZWN0IEFkbWluaXN0cmF0b3IiXX0.McHhw5XmHOPHhI9BrXEVD5ueWYo"
+                          "LLwsu_1XSxbN_3sc"
+             }
+         }
+     })
 @bp.route('/login', methods=['POST'])
 @bp.route('/token', methods=['POST'])
 @enforce_json()
@@ -388,6 +422,40 @@ def login(**kwargs):
 refresh_dict = {'token': fields.String(required=True)}
 
 
+@doc(tags=['token'],
+     description='Login as user username with password',
+     params={
+         'token': {
+            'description': 'Authentication token signed by auth server',
+            'in': 'body',
+            'type': 'string',
+            'required': True
+        }
+     },
+     responses={
+         '400: BadRequest': {
+             "description": "Given input could not be validated",
+             "example": {
+                 "error": "Invalid arguments"
+             }
+         },
+         '403: Forbidden': {
+             "description": "Authentication off token has failed",
+             "example": {
+                 "error": "Invalid token signature"
+             }
+         },
+         '200: OK': {
+             "description": "Query successful",
+             "example": {
+                 "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJPbmxpbmUgSldUIEJ1aWxkZXIiLCJpYXQiOjE1NTU4ODQ"
+                          "1NTksImV4cCI6MTU4NzQyMDU1OSwiYXVkIjoid3d3LmV4YW1wbGUuY29tIiwic3ViIjoianJvY2tldEBleGFtcGxlLmN"
+                          "vbSIsIkdpdmVuTmFtZSI6IkpvaG5ueSIsIlN1cm5hbWUiOiJSb2NrZXQiLCJFbWFpbCI6Impyb2NrZXRAZXhhbXBsZS5"
+                          "jb20iLCJSb2xlIjpbIk1hbmFnZXIiLCJQcm9qZWN0IEFkbWluaXN0cmF0b3IiXX0.McHhw5XmHOPHhI9BrXEVD5ueWYo"
+                          "LLwsu_1XSxbN_3sc"
+             }
+         }
+     })
 @bp.route('/refresh', methods=['PUT'])
 @bp.route('/token', methods=['PUT'])
 @enforce_json()
@@ -416,6 +484,36 @@ def refresh_token(token_payload, **kwargs):
 logout_dict = {'token': fields.String(required=True)}
 
 
+@doc(tags=['token'],
+     description='Login as user username with password',
+     params={
+         'token': {
+            'description': 'Authentication token signed by auth server',
+            'in': 'body',
+            'type': 'string',
+            'required': True
+        }
+     },
+     responses={
+         '400: BadRequest': {
+             "description": "Given input could not be validated",
+             "example": {
+                 "error": "Invalid arguments"
+             }
+         },
+         '403: Forbidden': {
+             "description": "Authentication off token has failed",
+             "example": {
+                 "error": "Invalid token signature"
+             }
+         },
+         '200: OK': {
+             "description": "Query successful",
+             "example": {
+                 "status": "OK"
+             }
+         }
+     })
 @bp.route('/logout', methods=['DELETE'])
 @bp.route('/token', methods=['DELETE'])
 @enforce_json()

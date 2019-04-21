@@ -18,7 +18,7 @@ def enforce_json():
     return decorator
 
 
-def check_token(secret):
+def check_token(pub_key):
     token = ''
     if request.method == 'GET':
         # check if token was sent with request
@@ -43,7 +43,7 @@ def check_token(secret):
                                    secret,
                                    leeway=timedelta(seconds=30),    # give 30 second leeway on time checks
                                    issuer='auth_server',
-                                   algorithms='HS256')
+                                   algorithms='RS256')
     except jwt.InvalidSignatureError:
         # signature of token does not match
         abort(403, 'Invalid token signature')
@@ -63,14 +63,14 @@ def check_token(secret):
     return token_payload
 
 
-def require_auth(secret="SECRET_KEY"):
-    if not callable(secret):
-        secret = lambda: current_app.config['SECRET_KEY']
+def require_auth(pub_key="PUBLIC_KEY"):
+    if not callable(pub_key):
+        pub_key = lambda: current_app.config['PUBLIC_KEY']
 
     def decorator(f):
         @wraps(f)
         def wrapped(*args, **kwargs):
-            payload = check_token(secret())
+            payload = check_token(pub_key())
             kwargs['token_payload'] = payload
             return f(*args, **kwargs)
 

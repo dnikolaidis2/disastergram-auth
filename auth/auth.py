@@ -378,12 +378,12 @@ def login():
 
         payload = {
             'iss': 'auth_server',                               # TODO: WHO ARE WE?
-            'sub': req_user.id,                    # TODO: Should we hash username or just plain text?
+            'sub': req_user.id,
             'exp': datetime.utcnow() + timedelta(minutes=10),   # 10 minute token
             'nbf': datetime.utcnow()
         }
 
-        token = jwt.encode(payload, current_app.config['SECRET_KEY'])
+        token = jwt.encode(payload, current_app.config['PRIVATE_KEY'], algorithm='RS256')
 
         # TODO do some database storage thingies?
 
@@ -394,16 +394,16 @@ def login():
         if len(request.json) != 1:
             abort(400, 'Invalid number of arguments')
 
-        token = check_token(current_app.config['SECRET_KEY'])
+        token = check_token(current_app.config['PUBLIC_KEY'])
 
         payload = {
             'iss': 'auth_server',                               # TODO: WHO ARE WE?
-            'sub': token['sub'],                                # TODO: Should we hash username or just plain text?
-            'exp': datetime.utcnow() + timedelta(minutes=10),   # 10 minute token
+            'sub': token['sub'],
+            'exp': datetime.utcnow() + timedelta(minutes=10),     # 10 minute token
             'nbf': datetime.utcnow()
         }
 
-        token = jwt.encode(payload, current_app.config['SECRET_KEY'])
+        token = jwt.encode(payload, current_app.config['PRIVATE_KEY'], algorithm='RS256')
 
         return jsonify(token=token.decode('utf-8'))
     elif request.method == 'DELETE':
@@ -417,14 +417,14 @@ def login():
              "description": "The servers public key is returned as a json object",
              "example": {
                  "public_key": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDNE1RK4tX2bGmA5ZWco+bPy/HS6v9yTg91ut9W6AtC4d+"
-                                  "Ie2o6IzPxVvJENYziIzteTGyEdQiW3NJP0lx1f6Zgjd9u2/h1PJl9MHYwZFJ2IpzimhDaASxv9CmDL7rzrZ"
-                                  "jupWCy1gwOjWQy8TQ1+Ema1w5dSXMA7GdU7JR745+CrXhTJrE9rQdIFuZeRQP5Q6zooAWMoCHax2xuv8v6r"
-                                  "9tP3J7HLSTSoi4I+/9M5ztLHh1CjPyg/btR118Z/BRRZvaPrXy0U+GdoEfQSAjLC0AEgaa1Z0Z0bk2NLc4/"
-                                  "kDIEW7w67rc5v53ewXO/I+pzUOxrAIO6PKu149JAdd/AibdXComjNG31KB6CQcGyG/PQU0hEBk96p2BGFyy"
-                                  "gtOJFr4hNP9usYHt2xFf+kEBkXuTMpKd8rwhIHK/SB+KkV0eHFP7lK9SFZvcQ+oSaJawJE1BBEm8ytvAtfP"
-                                  "NAchl6YJPLxfodXjDZ7QmtmnNODxCOhc+7EgH0VHZrLRQVQFSzw8bM9xQ7DCI7fglOSuHKwkN2E/HsKuD19"
-                                  "i5UEpp+9wq+WMD719ZVwXkjbxKWq8MLDdIZNlYqNn9l8/NMdVzI6TdeeAPZESdNjXhlgrxlw0LpEuWBNmFe"
-                                  "iTXsZstCmDCC6OOZDJApDIS8EIQh6TiTuA7v1FT1tCfNCG29JmI+iDBCeQ== dimitris@Gideon"
+                               "Ie2o6IzPxVvJENYziIzteTGyEdQiW3NJP0lx1f6Zgjd9u2/h1PJl9MHYwZFJ2IpzimhDaASxv9CmDL7rzrZ"
+                               "jupWCy1gwOjWQy8TQ1+Ema1w5dSXMA7GdU7JR745+CrXhTJrE9rQdIFuZeRQP5Q6zooAWMoCHax2xuv8v6r"
+                               "9tP3J7HLSTSoi4I+/9M5ztLHh1CjPyg/btR118Z/BRRZvaPrXy0U+GdoEfQSAjLC0AEgaa1Z0Z0bk2NLc4/"
+                               "kDIEW7w67rc5v53ewXO/I+pzUOxrAIO6PKu149JAdd/AibdXComjNG31KB6CQcGyG/PQU0hEBk96p2BGFyy"
+                               "gtOJFr4hNP9usYHt2xFf+kEBkXuTMpKd8rwhIHK/SB+KkV0eHFP7lK9SFZvcQ+oSaJawJE1BBEm8ytvAtfP"
+                               "NAchl6YJPLxfodXjDZ7QmtmnNODxCOhc+7EgH0VHZrLRQVQFSzw8bM9xQ7DCI7fglOSuHKwkN2E/HsKuD19"
+                               "i5UEpp+9wq+WMD719ZVwXkjbxKWq8MLDdIZNlYqNn9l8/NMdVzI6TdeeAPZESdNjXhlgrxlw0LpEuWBNmFe"
+                               "iTXsZstCmDCC6OOZDJApDIS8EIQh6TiTuA7v1FT1tCfNCG29JmI+iDBCeQ== dimitris@Gideon"
              }
          }
      })

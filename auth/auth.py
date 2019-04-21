@@ -116,7 +116,7 @@ def user_register(**kwargs):
 @enforce_json()
 @require_auth()
 def user_read(username, token):
-    user_schema = UserSchema(exclude=['id', 'password'])
+    user_schema = UserSchema(exclude=['password'])
 
     req_user = User.query.filter(User.username == username).one_or_none()
     if req_user is None:

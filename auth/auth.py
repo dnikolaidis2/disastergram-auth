@@ -353,61 +353,69 @@ def user_del(username, token_payload,  **kwargs):
     return jsonify(status='OK')
 
 
-@bp.route('/logout', methods=['DELETE'])
-@bp.route('/refresh', methods=['PUT'])
+login_dict = {'username': fields.String(required=True),
+              'password': fields.String(required=True)}
+
+
 @bp.route('/login', methods=['POST'])
-@bp.route('/token', methods=['POST', 'PUT', 'DELETE'])
+@bp.route('/token', methods=['POST'])
 @enforce_json()
-def login():
-    if request.method == 'POST':
-        # Validate incoming json
-        data = UserSchema(exclude=['id']).loads(request.data)
-        if data.errors != {}:
-            abort(400, data.errors)
+@use_kwargs(login_dict, apply=True)
+def login(**kwargs):
+    # Validate incoming json
+    if kwargs.keys() != login_dict.keys():
+        abort(400, 'Invalid arguments')
 
-        if len(request.json) != 2:  # only one username and password pair expected
-            abort(400, 'Invalid number of arguments')
+    req_user = User.query.filter(User.username == kwargs['username']).one_or_none()
+    if req_user is None:
+        abort(400, 'Incorrect username or password')
 
-        req_user = User.query.filter(User.username == request.json['username']).one_or_none()
+    if not req_user.check_password(kwargs['password']):
+        abort(400, 'Incorrect username or password')
 
-        if req_user is None:
-            abort(400,'Incorrect username or password')
+    payload = {
+        'iss': 'auth_server',                               # TODO: WHO ARE WE?
+        'sub': req_user.id,
+        'exp': datetime.utcnow() + timedelta(minutes=10),   # 10 minute token
+        'nbf': datetime.utcnow()
+    }
 
-        if not req_user.check_password(request.json['password']):
-            abort(400, 'Incorrect username or password')
+    token = jwt.encode(payload, current_app.config['PRIVATE_KEY'], algorithm='RS256')
 
-        payload = {
-            'iss': 'auth_server',                               # TODO: WHO ARE WE?
-            'sub': req_user.id,
-            'exp': datetime.utcnow() + timedelta(minutes=10),   # 10 minute token
-            'nbf': datetime.utcnow()
-        }
+    return jsonify(token=token.decode('utf-8'))
 
-        token = jwt.encode(payload, current_app.config['PRIVATE_KEY'], algorithm='RS256')
 
-        # TODO do some database storage thingies?
+refresh_dict = {'token': fields.String(required=True)}
 
-        return jsonify(token=token.decode('utf-8'))
-    elif request.method == 'PUT':
-        # TODO check if login has been invalidated
 
-        if len(request.json) != 1:
-            abort(400, 'Invalid number of arguments')
+@bp.route('/refresh', methods=['PUT'])
+@bp.route('/token', methods=['PUT'])
+@enforce_json()
+@use_kwargs(refresh_dict, apply=True)
+@require_auth()
+def refresh_token(token_payload, **kwargs):
+    # TODO check if login has been invalidated
 
-        token = check_token(current_app.config['PUBLIC_KEY'])
+    # Validate incoming json
+    if kwargs.keys() != login_dict.keys():
+        abort(400, 'Invalid arguments')
 
-        payload = {
-            'iss': 'auth_server',                               # TODO: WHO ARE WE?
-            'sub': token['sub'],
-            'exp': datetime.utcnow() + timedelta(minutes=10),     # 10 minute token
-            'nbf': datetime.utcnow()
-        }
+    payload = {
+        'iss': 'auth_server',                               # TODO: WHO ARE WE?
+        'sub': token_payload['sub'],
+        'exp': datetime.utcnow() + timedelta(minutes=10),   # 10 minute token
+        'nbf': datetime.utcnow()
+    }
 
-        token = jwt.encode(payload, current_app.config['PRIVATE_KEY'], algorithm='RS256')
+    token = jwt.encode(payload, current_app.config['PRIVATE_KEY'], algorithm='RS256')
 
-        return jsonify(token=token.decode('utf-8'))
-    elif request.method == 'DELETE':
-        pass
+    return jsonify(token=token.decode('utf-8'))
+
+
+@bp.route('/logout', methods=['DELETE'])
+@bp.route('/token', methods=['DELETE'])
+def logout(**kwargs):
+    pass
 
 
 @doc(tags=['public_key'],

@@ -330,10 +330,25 @@ user_delete_dict = {'token': fields.Str(required=True)}
          }
      })
 @bp.route('/user/<username>', methods=['DELETE'])
-@use_kwargs(user_delete_dict)
 @enforce_json()
+@use_kwargs(user_delete_dict)
 @require_auth()
-def user_del(username, **kwargs):
+def user_del(username, token_payload,  **kwargs):
+    # Validate incoming json
+    if kwargs.keys() != user_delete_dict.keys():
+        abort(400, 'Invalid arguments')
+
+    # Could not find user
+    req_user = User.query.filter(User.username == username).one_or_none()
+    if req_user is None:
+        abort(400, 'User ' + username + ' does not exist')
+
+    # validate that the token came form the correct user
+    if token_payload['sub'] != req_user.id:
+        abort(403, 'Token subject and username could not be matched')
+
+    db.session.delete(req_user)
+    db.session.commit()
 
     return jsonify(status='OK')
 

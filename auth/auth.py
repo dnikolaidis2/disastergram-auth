@@ -2,7 +2,7 @@ from flask import Blueprint, request, Response, current_app, jsonify, abort
 from auth.models import UserSchema, User
 from auth import db
 from datetime import datetime, timedelta
-from auth.utils import enforce_json, require_auth, check_token
+from auth.utils import enforce_json, require_auth
 from flask_apispec import use_kwargs, doc
 from marshmallow import fields
 import jwt
@@ -394,10 +394,11 @@ refresh_dict = {'token': fields.String(required=True)}
 @use_kwargs(refresh_dict, apply=True)
 @require_auth()
 def refresh_token(token_payload, **kwargs):
-    # TODO check if login has been invalidated
+    # TODO Check if the token is in the blacklist
+    # TODO add previous token to blacklist???
 
     # Validate incoming json
-    if kwargs.keys() != login_dict.keys():
+    if kwargs.keys() != refresh_dict.keys():
         abort(400, 'Invalid arguments')
 
     payload = {
@@ -412,10 +413,22 @@ def refresh_token(token_payload, **kwargs):
     return jsonify(token=token.decode('utf-8'))
 
 
+logout_dict = {'token': fields.String(required=True)}
+
+
 @bp.route('/logout', methods=['DELETE'])
 @bp.route('/token', methods=['DELETE'])
+@enforce_json()
+@use_kwargs(logout_dict, apply=True)
+@require_auth()
 def logout(**kwargs):
-    pass
+    # Validate incoming json
+    if kwargs.keys() != refresh_dict.keys():
+        abort(400, 'Invalid arguments')
+
+    # TODO do stuff to handle things
+
+    return jsonify(status='OK')
 
 
 @doc(tags=['public_key'],

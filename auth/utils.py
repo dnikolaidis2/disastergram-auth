@@ -10,7 +10,7 @@ def enforce_json():
         def wrapped(*args, **kwargs):
             # GET requests do not have json
             if (not request.is_json) and (request.method != 'GET'):
-                abort(400, error='REST API call is not json')
+                abort(400, 'REST API call is not json')
 
             return f(*args, **kwargs)
 

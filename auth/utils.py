@@ -18,7 +18,7 @@ def enforce_json():
     return decorator
 
 
-def check_token(secret, username=None):
+def check_token(secret):
     token = ''
     if request.method == 'GET':
         # check if token was sent with request
@@ -60,22 +60,18 @@ def check_token(secret, username=None):
         # something went wrong here
         abort(403, 'Invalid token')
 
-    if username is None:
-        return token_payload
-
-    if token_payload['sub'] != username:
-        abort(403, 'Invalid token subject')
-
     return token_payload
 
 
-def require_auth():
+def require_auth(secret="SECRET_KEY"):
+    if not callable(secret):
+        secret = lambda: current_app.config['SECRET_KEY']
+
     def decorator(f):
         @wraps(f)
         def wrapped(*args, **kwargs):
-            secret = current_app.config['SECRET_KEY']
-            payload = check_token(secret, kwargs['username'])
-            kwargs['token'] = payload
+            payload = check_token(secret())
+            kwargs['token_payload'] = payload
             return f(*args, **kwargs)
 
         return wrapped

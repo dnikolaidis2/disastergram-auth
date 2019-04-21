@@ -115,12 +115,17 @@ def user_register(**kwargs):
 @bp.route('/user/<username>')
 @enforce_json()
 @require_auth()
-def user_read(username, token):
+def user_read(username, token_payload):
     user_schema = UserSchema(exclude=['password'])
 
+    # validate that user exists
     req_user = User.query.filter(User.username == username).one_or_none()
     if req_user is None:
         abort(400, 'User ' + request.json['username'] + ' does not exist')
+
+    # validate that the token came form the correct user
+    if token_payload['sub'] != req_user.id:
+        abort(403, 'Token subject and username could not be matched')
 
     return user_schema.jsonify(req_user)
 
@@ -182,7 +187,7 @@ user_replace_dict = {'token': fields.Str(required=True),
 @use_kwargs(user_replace_dict, apply=True)
 @enforce_json()
 @require_auth()
-def user_replace(username, **kwargs):
+def user_replace(username, token_payload, **kwargs):
     # Validate incoming json
     if kwargs.keys() != user_replace_dict.keys():
         abort(400, 'Invalid arguments')
@@ -191,6 +196,10 @@ def user_replace(username, **kwargs):
     req_user = User.query.filter(User.username == username).one_or_none()
     if req_user is None:
         abort(400, 'User ' + username + ' does not exist')
+
+    # validate that the token came form the correct user
+    if token_payload['sub'] != req_user.id:
+        abort(403, 'Token subject and username could not be matched')
 
     # Username has not changed
     if req_user.username == kwargs['new_username']:
@@ -277,7 +286,7 @@ def login():
 
         payload = {
             'iss': 'auth_server',                               # TODO: WHO ARE WE?
-            'sub': request.json['username'],                    # TODO: Should we hash username or just plain text?
+            'sub': req_user.id,                    # TODO: Should we hash username or just plain text?
             'exp': datetime.utcnow() + timedelta(minutes=10),   # 10 minute token
             'nbf': datetime.utcnow()
         }

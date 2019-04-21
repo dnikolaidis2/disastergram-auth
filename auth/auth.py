@@ -120,7 +120,7 @@ def user_read(username, token):
 
     req_user = User.query.filter(User.username == username).one_or_none()
     if req_user is None:
-        return jsonify(error='User ' + request.json['username'] + ' does not exist'), 400
+        abort(400, 'User ' + request.json['username'] + ' does not exist')
 
     return user_schema.jsonify(req_user)
 
@@ -190,12 +190,12 @@ def user_replace(username, **kwargs):
     # Could not find user
     req_user = User.query.filter(User.username == username).one_or_none()
     if req_user is None:
-        return jsonify(error='User ' + username + ' does not exist'), 400
+        abort(400, 'User ' + username + ' does not exist')
 
     # Username has not changed
     if req_user.username == kwargs['new_username']:
-        return jsonify(error='Users username has not changed please user this endpoint '
-                             'for replacing resource not updating it'), 400
+        abort(400, "Users username has not changed please user this endpoint "
+                   "for replacing resource not updating it")
 
     req_user.username = kwargs['new_username']
     req_user.set_password(kwargs['new_password'])
@@ -262,18 +262,18 @@ def login():
         # Validate incoming json
         data = UserSchema(exclude=['id']).loads(request.data)
         if data.errors != {}:
-            return jsonify(errors=data.errors), 400
+            abort(400, data.errors)
 
         if len(request.json) != 2:  # only one username and password pair expected
-            return jsonify(error='Invalid number of arguments'), 400
+            abort(400, 'Invalid number of arguments')
 
         req_user = User.query.filter(User.username == request.json['username']).one_or_none()
 
         if req_user is None:
-            return jsonify(error='Incorrect username or password'), 400
+            abort(400,'Incorrect username or password')
 
         if not req_user.check_password(request.json['password']):
-            return jsonify(error='Incorrect username or password'), 400
+            abort(400, 'Incorrect username or password')
 
         payload = {
             'iss': 'auth_server',                               # TODO: WHO ARE WE?
@@ -291,7 +291,7 @@ def login():
         # TODO check if login has been invalidated
 
         if len(request.json) != 1:
-            return jsonify(error='Invalid number of arguments'), 400
+            abort(400, 'Invalid number of arguments')
 
         token = check_token(current_app.config['SECRET_KEY'])
 

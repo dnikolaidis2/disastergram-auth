@@ -136,7 +136,7 @@ user_replace_dict = {'token': fields.Str(required=True),
 
 
 @doc(tags=['user'],
-     description='completely replace users info with new info',
+     description='Completely replace users info with new info',
      params={
         'username': {
             'description': 'Users username',
@@ -184,8 +184,8 @@ user_replace_dict = {'token': fields.Str(required=True),
          }
      })
 @bp.route('/user/<username>', methods=['PUT'])
-@use_kwargs(user_replace_dict, apply=True)
 @enforce_json()
+@use_kwargs(user_replace_dict, apply=True)
 @require_auth()
 def user_replace(username, token_payload, **kwargs):
     # Validate incoming json
@@ -214,9 +214,86 @@ def user_replace(username, token_payload, **kwargs):
     return jsonify(status='OK')
 
 
+user_update_dict = {'token': fields.Str(required=True),
+                    'new_username': fields.Str(required=False),
+                    'new_password': fields.Str(required=False)}
+
+
+@doc(tags=['user'],
+     description='Update parts of the users info',
+     params={
+        'username': {
+            'description': 'Users username',
+            'in': 'path',
+            'type': 'string',
+            'required': True
+        },
+        'token': {
+            'description': 'Authentication token signed by auth server',
+            'in': 'body',
+            'type': 'string',
+            'required': True
+        },
+        'new_username': {
+            'description': 'New user username',
+            'in': 'body',
+            'type': 'string',
+            'required': False
+        },
+        'new_password': {
+            'description': 'New user password',
+            'in': 'body',
+            'type': 'string',
+            'required': False
+        }
+     },
+     responses={
+         '400: BadRequest': {
+             "description": "Given input could not be validated",
+             "example": {
+                 "error": "Username flamboozle does not exist"
+             }
+         },
+         '403: Forbidden': {
+             "description": "Authentication off token has failed",
+             "example": {
+                 "error": "Invalid token signature"
+             }
+         },
+         '200: OK': {
+             "description": "Query successful",
+             "example": {
+                 "status": "OK"
+             }
+         }
+     })
 @bp.route('/user/<username>', methods=['PATCH'])
-def user_update(username):
-    return jsonify(test=username)
+@enforce_json()
+@use_kwargs(user_update_dict, apply=True)
+@require_auth()
+def user_update(username, token_payload, **kwargs):
+    # Validate incoming json
+    if not (2 <= len(kwargs.keys()) <= len(user_replace_dict.keys())):
+        abort(400, 'Invalid arguments')
+
+    # Could not find user
+    req_user = User.query.filter(User.username == username).one_or_none()
+    if req_user is None:
+        abort(400, 'User ' + username + ' does not exist')
+
+    # validate that the token came form the correct user
+    if token_payload['sub'] != req_user.id:
+        abort(403, 'Token subject and username could not be matched')
+
+    if kwargs['new_username'] != '':
+        req_user.username = kwargs['new_username']
+
+    if kwargs['new_password'] != '':
+        req_user.set_password(kwargs['new_password'])
+
+    db.session.commit()
+
+    return jsonify(status='OK')
 
 
 user_delete_dict = {'token': fields.Str(required=True)}

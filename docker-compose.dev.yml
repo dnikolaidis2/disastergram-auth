@@ -2,5 +2,14 @@ version: '3.7'
 
 services:
   auth:
+    ports:
+      - "5000:5000"
+    build:
+      context: .
+      dockerfile: Dockerfile-dev
     volumes:
       - .:/user/src/app
+
+  auth-db:
+    ports:
+      - "6000:5432"

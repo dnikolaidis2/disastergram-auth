@@ -17,9 +17,12 @@ def create_app(test_config=None):
     app = Flask(__name__, instance_path='/user/src/app/instance')
     app.config.from_mapping(
         SECRET_KEY='temp',
-        SQLALCHEMY_DATABASE_URI='postgresql+psycopg2://postgres:1234@db/postgres',
+        SQLALCHEMY_DATABASE_URI='postgresql+psycopg2://postgres:1234@auth-db/postgres',
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
     )
+
+    # app.logger.warning(what)
+    # app.logger.warning(why)
 
     if test_config is None:
         # load the instance config if it exists, when not testing

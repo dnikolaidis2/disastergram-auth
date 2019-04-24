@@ -1,4 +1,4 @@
-from flask import Blueprint, request, Response, current_app, jsonify, abort
+from flask import Blueprint, Response, current_app, jsonify, abort
 from auth.models import UserSchema, User
 from auth import db
 from datetime import datetime, timedelta
@@ -19,6 +19,17 @@ def bad_request_handler(error):
 @bp.errorhandler(403)
 def bad_request_handler(error):
     return jsonify(error=error.description), 403
+
+
+@bp.errorhandler(500)
+def server_error_handler(error):
+    return jsonify(error=error.description), 500
+
+
+@doc(description="Simple root endpoint for clients to check connection with auth server")
+@bp.route('/')
+def root():
+    return jsonify(status='OK')
 
 
 register_dict = {'username': fields.Str(required=True),
@@ -61,14 +72,17 @@ def user_register(**kwargs):
     if kwargs.keys() != register_dict.keys():
         abort(400, 'Invalid arguments')
 
+    username = kwargs.get('username')
+    password = kwargs.get('password')
+
     # Abort if user already exists
-    if User.query.filter(User.username == kwargs['username']).count() != 0:
-        abort(400, 'Username ' + kwargs['username'] + ' has already been taken')
+    if User.query.filter(User.username == username).count() != 0:
+        abort(400, 'Username {} has already been taken'.format(repr(username)))
 
     # 1. Creates new user according to request params
     # 2. Add to db
     # 3. Commit changes
-    new_user = User(username=kwargs['username'], password=kwargs['password'])
+    new_user = User(username=username, password=password)
     db.session.add(new_user)
     db.session.commit()
 
@@ -121,7 +135,7 @@ def user_read(username, token_payload):
     # validate that user exists
     req_user = User.query.filter(User.username == username).one_or_none()
     if req_user is None:
-        abort(400, 'User ' + request.json['username'] + ' does not exist')
+        abort(400, 'User {} does not exist'.format(repr(username)))
 
     # validate that the token came form the correct user
     if token_payload['sub'] != req_user.id:
@@ -188,26 +202,30 @@ user_replace_dict = {'token': fields.Str(required=True),
 @use_kwargs(user_replace_dict, apply=True)
 @require_auth()
 def user_replace(username, token_payload, **kwargs):
+    # TODO Accept only User object
     # Validate incoming json
     if kwargs.keys() != user_replace_dict.keys():
         abort(400, 'Invalid arguments')
 
+    new_username = kwargs.get('new_username')
+    new_password = kwargs.get('new_password')
+
     # Could not find user
     req_user = User.query.filter(User.username == username).one_or_none()
     if req_user is None:
-        abort(400, 'User ' + username + ' does not exist')
+        abort(400, 'User {} does not exist'.format(repr(username)))
 
     # validate that the token came form the correct user
     if token_payload['sub'] != req_user.id:
         abort(403, 'Token subject and username could not be matched')
 
     # Username has not changed
-    if req_user.username == kwargs['new_username']:
+    if req_user.username == new_username:
         abort(400, "Users username has not changed please user this endpoint "
                    "for replacing resource not updating it")
 
-    req_user.username = kwargs['new_username']
-    req_user.set_password(kwargs['new_password'])
+    req_user.username = new_username
+    req_user.set_password(new_password)
 
     db.session.commit()
 
@@ -272,6 +290,7 @@ user_update_dict = {'token': fields.Str(required=True),
 @use_kwargs(user_update_dict, apply=True)
 @require_auth()
 def user_update(username, token_payload, **kwargs):
+    # TODO Accept only User object
     # Validate incoming json
     if not (2 <= len(kwargs.keys()) <= len(user_replace_dict.keys())):
         abort(400, 'Invalid arguments')
@@ -279,17 +298,19 @@ def user_update(username, token_payload, **kwargs):
     # Could not find user
     req_user = User.query.filter(User.username == username).one_or_none()
     if req_user is None:
-        abort(400, 'User ' + username + ' does not exist')
+        abort(400, 'User {} does not exist'.format(repr(username)))
 
     # validate that the token came form the correct user
     if token_payload['sub'] != req_user.id:
         abort(403, 'Token subject and username could not be matched')
 
-    if kwargs['new_username'] != '':
-        req_user.username = kwargs['new_username']
+    new_username = kwargs.get('new_username')
+    if new_username is not None:
+        req_user.username = new_username
 
-    if kwargs['new_password'] != '':
-        req_user.set_password(kwargs['new_password'])
+    new_password = kwargs.get('new_password')
+    if new_password is not None:
+        req_user.set_password(new_password)
 
     db.session.commit()
 
@@ -341,7 +362,7 @@ def user_del(username, token_payload,  **kwargs):
     # Could not find user
     req_user = User.query.filter(User.username == username).one_or_none()
     if req_user is None:
-        abort(400, 'User ' + username + ' does not exist')
+        abort(400, 'User {} does not exist'.format(repr(username)))
 
     # validate that the token came form the correct user
     if token_payload['sub'] != req_user.id:
@@ -400,11 +421,14 @@ def login(**kwargs):
     if kwargs.keys() != login_dict.keys():
         abort(400, 'Invalid arguments')
 
-    req_user = User.query.filter(User.username == kwargs['username']).one_or_none()
+    username = kwargs.get('username')
+    password = kwargs.get('password')
+
+    req_user = User.query.filter(User.username == username).one_or_none()
     if req_user is None:
         abort(400, 'Incorrect username or password')
 
-    if not req_user.check_password(kwargs['password']):
+    if not req_user.check_password(password):
         abort(400, 'Incorrect username or password')
 
     payload = {
@@ -414,7 +438,11 @@ def login(**kwargs):
         'nbf': datetime.utcnow()
     }
 
-    token = jwt.encode(payload, current_app.config['PRIVATE_KEY'], algorithm='RS256')
+    private_key = current_app.config.get('PRIVATE_KEY')
+    if private_key is None:
+        abort(500, "Server error occurred while processing request")
+
+    token = jwt.encode(payload, private_key, algorithm='RS256')
 
     return jsonify(token=token.decode('utf-8'))
 
@@ -476,7 +504,11 @@ def refresh_token(token_payload, **kwargs):
         'nbf': datetime.utcnow()
     }
 
-    token = jwt.encode(payload, current_app.config['PRIVATE_KEY'], algorithm='RS256')
+    private_key = current_app.config.get('PRIVATE_KEY')
+    if private_key is None:
+        abort(500, "Server error occurred while processing request")
+
+    token = jwt.encode(payload, private_key, algorithm='RS256')
 
     return jsonify(token=token.decode('utf-8'))
 
@@ -549,4 +581,8 @@ def logout(**kwargs):
      })
 @bp.route('/pubkey')
 def pub_key():
-    return jsonify(public_key=current_app.config['PUBLIC_KEY'].decode('utf-8'))
+    public_key = current_app.config.get('PUBLIC_KEY')
+    if public_key is None:
+        abort(500, "Server error occurred while processing request")
+
+    return jsonify(public_key=public_key.decode('utf-8'))

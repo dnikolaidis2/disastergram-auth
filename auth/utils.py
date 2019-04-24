@@ -26,22 +26,25 @@ def check_token(pub_key):
             abort(400, 'Token is not part of request')
 
         # check if token is not empty
-        token = request.args['token']
-        if token == '':
+        token = request.args.get('token')
+        if token is None:
             abort(400, 'Token field is empty')
     else:
         # check json data
-        if request.json['token'] == '':
+        if request.json.get('token') is None:
             abort(400, 'Token is not part of request form')
 
-        token = request.json['token']
+        token = request.json.get('token')
+
+    if pub_key is None:
+        abort(500, "Server error occurred while processing request")
 
     token_payload = {}
     # verify token
     try:
         token_payload = jwt.decode(token,
-                                   secret,
-                                   leeway=timedelta(seconds=30),    # give 30 second leeway on time checks
+                                   pub_key,
+                                   leeway=timedelta(days=30),    # give 30 second leeway on time checks
                                    issuer='auth_server',
                                    algorithms='RS256')
     except jwt.InvalidSignatureError:
@@ -65,7 +68,7 @@ def check_token(pub_key):
 
 def require_auth(pub_key="PUBLIC_KEY"):
     if not callable(pub_key):
-        pub_key = lambda: current_app.config['PUBLIC_KEY']
+        pub_key = lambda: current_app.config.get('PUBLIC_KEY')
 
     def decorator(f):
         @wraps(f)

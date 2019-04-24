@@ -1,12 +1,19 @@
-FROM tiangolo/meinheld-gunicorn:python3.6
+FROM python:3.6
 
-WORKDIR /app
+EXPOSE 5000
 
-COPY ./auth ./auth
+WORKDIR /user/src/app
 
-COPY requirements.txt .
-
+COPY requirements.txt ./
 RUN pip install --no-cache -r requirements.txt
 
-ENV APP_MODULE "auth.__init__:create_app()"
-ENV WORKERS_PER_CORE 0.5
+RUN mkdir auth
+RUN mkdir instance
+
+COPY ./auth ./auth
+COPY ./instance ./instance
+
+ENV FLASK_APP /user/src/app/auth
+ENV FLASK_ENV development
+ENV FLASK_DEBUG 1
+CMD ["flask", "run", "--host", "0.0.0.0"]

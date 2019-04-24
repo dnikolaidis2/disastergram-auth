@@ -1,0 +1,34 @@
+version: '3.7'
+
+services:
+  auth:
+    image: dnikolaidis/disastergram-auth:meinheld
+    build:
+      context: .
+      dockerfile: Dockerfile-meinheld
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: on-failure
+    environment:
+      - WORKERS_PER_CORE=0.5
+      - LOG_LEVEL=info
+      - FLASK_APP_INSTANCE=/app/instance
+    ports:
+    - "5000:80"
+    networks:
+      - auth-net
+    depends_on:
+      - auth-db
+
+  # https://hub.docker.com/_/postgres
+  auth-db:
+    image: postgres:11
+    restart: always
+    environment:
+      POSTGRES_PASSWORD: disastergram
+    networks:
+      - auth-net
+
+networks:
+  auth-net:

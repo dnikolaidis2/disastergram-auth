@@ -1,0 +1,15 @@
+FROM tiangolo/meinheld-gunicorn:python3.6
+
+WORKDIR /app
+
+COPY ./auth ./auth
+COPY ./instance ./instance
+
+# Move prestart script and python script to run before app to init database
+COPY ./scripts/prestart .
+
+COPY requirements.txt .
+
+RUN pip install --no-cache -r requirements.txt
+
+ENV APP_MODULE "auth:create_app()"

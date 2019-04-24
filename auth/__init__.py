@@ -5,6 +5,9 @@ from flask_marshmallow import Marshmallow
 from apispec import APISpec
 from apispec.ext.marshmallow import MarshmallowPlugin
 from flask_apispec.extension import FlaskApiSpec
+from os import environ
+
+isinstance_path = ''
 
 db = SQLAlchemy()
 ma = Marshmallow()
@@ -13,20 +16,20 @@ docs = FlaskApiSpec()
 
 
 def create_app(test_config=None):
+    # Get environment variables
+    instance_path = environ.get('FLASK_APP_INSTANCE', '/user/src/app/instance')
+    flask_env = environ.get('FLASK_ENV', 'deployment')
+
     # create the app configuration
-    app = Flask(__name__, instance_path='/user/src/app/instance')
+    app = Flask(__name__, instance_path=instance_path)
     app.config.from_mapping(
-        SECRET_KEY='temp',
-        SQLALCHEMY_DATABASE_URI='postgresql+psycopg2://postgres:1234@auth-db/postgres',
+        SQLALCHEMY_DATABASE_URI='postgresql+psycopg2://postgres:disastergram@auth-db/postgres',
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
     )
 
-    # app.logger.warning(what)
-    # app.logger.warning(why)
-
     if test_config is None:
         # load the instance config if it exists, when not testing
-        app.config.from_pyfile('/user/src/app/instance/config.py', silent=True)
+        app.config.from_pyfile(instance_path + '/config.py', silent=True)
     else:
         app.config.from_mapping(test_config)
 
@@ -48,8 +51,11 @@ def create_app(test_config=None):
     bc.init_app(app)
     docs.init_app(app)
 
-    from auth import models
-    models.init_db(app)
+    # for some reason when not in development
+    # this call fails /shrug
+    if flask_env == 'development':
+        from auth import models
+        models.init_db(app)
 
     from auth import auth
 

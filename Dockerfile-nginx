@@ -1,0 +1,15 @@
+FROM tiangolo/uwsgi-nginx-flask:python3.6
+
+WORKDIR /app
+
+COPY ./auth ./auth
+COPY ./instance ./instance
+
+# Move prestart script and python script to run before app to init database
+COPY ./scripts/prestart .
+
+COPY requirements.txt .
+
+COPY uwsgi.ini .
+
+RUN pip install --no-cache -r requirements.txt

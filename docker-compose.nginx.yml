@@ -2,9 +2,19 @@ version: '3.7'
 
 services:
   auth:
-    build: .
+    image: dnikolaidis/disastergram-auth:nginx
+    build:
+      context: .
+      dockerfile: Dockerfile-nginx
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: on-failure
+    environment:
+      - NGINX_WORKER_PROCESSES=4
+      - FLASK_APP_INSTANCE=/app/instance
     ports:
-    - "5000:5000"
+    - "5000:80"
     networks:
       - auth-net
     depends_on:

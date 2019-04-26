@@ -31,6 +31,8 @@ def server_error_handler(error):
 def root():
     return jsonify(status='OK')
 
+# --------------------------------      user        -------------------------------------------------
+
 
 register_dict = {'username': fields.Str(required=True),
                  'password': fields.Str(required=True)}
@@ -90,6 +92,9 @@ def user_register(**kwargs):
     return Response(status=201)
 
 
+# --------------------------------      user/username   -------------------------------------------------
+
+
 @doc(tags=['user'],
      description='Get user info based on username',
      params={
@@ -122,6 +127,7 @@ def user_register(**kwargs):
          '200: OK': {
              "description": "Query successful",
              "example": {
+                 "id":       1,
                  "username": "flamboozle"
              }
          }
@@ -374,6 +380,290 @@ def user_del(username, token_payload,  **kwargs):
     return jsonify(status='OK')
 
 
+# --------------------------------      user/user_id   -------------------------------------------------
+
+
+@doc(tags=['user'],
+     description='Get user info by user id',
+     params={
+        'user_id': {
+            'description': 'Users id',
+            'in': 'path',
+            'type': 'int',
+            'required': True
+        },
+        'token': {
+            'description': 'Authentication token signed by auth server',
+            'in': 'query',
+            'type': 'string',
+            'required': True
+        }
+     },
+     responses={
+         '400: BadRequest': {
+             "description": "Given input could not be validated",
+             "example": {
+                 "error": "Username flamboozle does not exist"
+             }
+         },
+         '403: Forbidden': {
+             "description": "Authentication off token has failed",
+             "example": {
+                 "error": "Invalid token signature"
+             }
+         },
+         '200: OK': {
+             "description": "Query successful",
+             "example": {
+                 "id":       1,
+                 "username": "flamboozle"
+             }
+         }
+     })
+@bp.route('/user/<int:user_id>')
+@enforce_json()
+@require_auth()
+def user_read_id(user_id, token_payload):
+    user_schema = UserSchema(exclude=['password'])
+
+    # validate that user exists
+    req_user = User.query.filter(User.id == user_id).one_or_none()
+    if req_user is None:
+        abort(400, 'User with id {} does not exist'.format(repr(user_id)))
+
+    # validate that the token came form the correct user
+    if token_payload['sub'] != req_user.id:
+        abort(403, 'Token subject and username could not be matched')
+
+    return user_schema.jsonify(req_user)
+
+
+@doc(tags=['user'],
+     description='Completely replace users info with new info by user id',
+     params={
+        'user_id': {
+            'description': 'Users id',
+            'in': 'path',
+            'type': 'int',
+            'required': True
+        },
+        'token': {
+            'description': 'Authentication token signed by auth server',
+            'in': 'body',
+            'type': 'string',
+            'required': True
+        },
+        'new_username': {
+            'description': 'New user username',
+            'in': 'body',
+            'type': 'string',
+            'required': True
+        },
+        'new_password': {
+            'description': 'New user password',
+            'in': 'body',
+            'type': 'string',
+            'required': True
+        }
+     },
+     responses={
+         '400: BadRequest': {
+             "description": "Given input could not be validated",
+             "example": {
+                 "error": "Username flamboozle does not exist"
+             }
+         },
+         '403: Forbidden': {
+             "description": "Authentication off token has failed",
+             "example": {
+                 "error": "Invalid token signature"
+             }
+         },
+         '200: OK': {
+             "description": "Query successful",
+             "example": {
+                 "status": "OK"
+             }
+         }
+     })
+@bp.route('/user/<int:user_id>', methods=['PUT'])
+@enforce_json()
+@use_kwargs(user_replace_dict, apply=True)
+@require_auth()
+def user_replace_id(user_id, token_payload, **kwargs):
+    # TODO Accept only User object
+    # Validate incoming json
+    if kwargs.keys() != user_replace_dict.keys():
+        abort(400, 'Invalid arguments')
+
+    new_username = kwargs.get('new_username')
+    new_password = kwargs.get('new_password')
+
+    # Could not find user
+    req_user = User.query.filter(User.id == user_id).one_or_none()
+    if req_user is None:
+        abort(400, 'User {} does not exist'.format(repr(user_id)))
+
+    # validate that the token came form the correct user
+    if token_payload['sub'] != req_user.id:
+        abort(403, 'Token subject and username could not be matched')
+
+    # Username has not changed
+    if req_user.username == new_username:
+        abort(400, "Users username has not changed please user this endpoint "
+                   "for replacing resource not updating it")
+
+    req_user.username = new_username
+    req_user.set_password(new_password)
+
+    db.session.commit()
+
+    return jsonify(status='OK')
+
+
+@doc(tags=['user'],
+     description='Update parts of the users info by user id',
+     params={
+        'user_id': {
+            'description': 'Users id',
+            'in': 'path',
+            'type': 'int',
+            'required': True
+        },
+        'token': {
+            'description': 'Authentication token signed by auth server',
+            'in': 'body',
+            'type': 'string',
+            'required': True
+        },
+        'new_username': {
+            'description': 'New user username',
+            'in': 'body',
+            'type': 'string',
+            'required': False
+        },
+        'new_password': {
+            'description': 'New user password',
+            'in': 'body',
+            'type': 'string',
+            'required': False
+        }
+     },
+     responses={
+         '400: BadRequest': {
+             "description": "Given input could not be validated",
+             "example": {
+                 "error": "Username flamboozle does not exist"
+             }
+         },
+         '403: Forbidden': {
+             "description": "Authentication off token has failed",
+             "example": {
+                 "error": "Invalid token signature"
+             }
+         },
+         '200: OK': {
+             "description": "Query successful",
+             "example": {
+                 "status": "OK"
+             }
+         }
+     })
+@bp.route('/user/<int:user_id>', methods=['PATCH'])
+@enforce_json()
+@use_kwargs(user_update_dict, apply=True)
+@require_auth()
+def user_update_id(user_id, token_payload, **kwargs):
+    # TODO Accept only User object
+    # Validate incoming json
+    if not (2 <= len(kwargs.keys()) <= len(user_replace_dict.keys())):
+        abort(400, 'Invalid arguments')
+
+    # Could not find user
+    req_user = User.query.filter(User.id == user_id).one_or_none()
+    if req_user is None:
+        abort(400, 'User with id {} does not exist'.format(repr(user_id)))
+
+    # validate that the token came form the correct user
+    if token_payload['sub'] != req_user.id:
+        abort(403, 'Token subject and username could not be matched')
+
+    new_username = kwargs.get('new_username')
+    if new_username is not None:
+        req_user.username = new_username
+
+    new_password = kwargs.get('new_password')
+    if new_password is not None:
+        req_user.set_password(new_password)
+
+    db.session.commit()
+
+    return jsonify(status='OK')
+
+
+@doc(tags=['user'],
+     description='Deletes user based on user_id',
+     params={
+        'user_id': {
+            'description': 'Users id',
+            'in': 'path',
+            'type': 'int',
+            'required': True
+        },
+        'token': {
+            'description': 'Authentication token signed by auth server',
+            'in': 'body',
+            'type': 'string',
+            'required': True
+        }
+     },
+     responses={
+         '400: BadRequest': {
+             "description": "Given input could not be validated",
+             "example": {
+                 "error": "Token is not part of request form"
+             }
+         },
+         '403: Forbidden': {
+             "description": "Authentication off token has failed",
+             "example": {
+                 "error": "Invalid token signature"
+             }
+         },
+         '200: OK': {
+             "description": "Query successful",
+             "example": {
+                 "status": "OK"
+             }
+         }
+     })
+@bp.route('/user/<int:user_id>', methods=['DELETE'])
+@enforce_json()
+@use_kwargs(user_delete_dict)
+@require_auth()
+def user_del_id(user_id, token_payload,  **kwargs):
+    # Validate incoming json
+    if kwargs.keys() != user_delete_dict.keys():
+        abort(400, 'Invalid arguments')
+
+    # Could not find user
+    req_user = User.query.filter(User.id == user_id).one_or_none()
+    if req_user is None:
+        abort(400, 'User with id {} does not exist'.format(repr(user_id)))
+
+    # validate that the token came form the correct user
+    if token_payload['sub'] != req_user.id:
+        abort(403, 'Token subject and username could not be matched')
+
+    db.session.delete(req_user)
+    db.session.commit()
+
+    return jsonify(status='OK')
+
+
+# --------------------------------      token     -------------------------------------------------
+
+
 login_dict = {'username': fields.String(required=True),
               'password': fields.String(required=True)}
 
@@ -560,6 +850,8 @@ def logout(**kwargs):
 
     return jsonify(status='OK')
 
+
+# --------------------------------      public_key     -------------------------------------------------
 
 @doc(tags=['public_key'],
      description='Authentication servers public key',

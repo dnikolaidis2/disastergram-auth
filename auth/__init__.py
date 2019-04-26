@@ -62,11 +62,21 @@ def create_app(test_config=None):
     app.register_blueprint(auth.bp)
 
     docs.register(auth.user_register, blueprint='auth')
-    docs.register(auth.pub_key, blueprint='auth')
+
     docs.register(auth.user_read, blueprint='auth')
     docs.register(auth.user_replace, blueprint='auth')
+    docs.register(auth.user_update, blueprint='auth')
+    docs.register(auth.user_del, blueprint='auth')
+
+    docs.register(auth.user_read_id, blueprint='auth')
+    docs.register(auth.user_replace_id, blueprint='auth')
+    docs.register(auth.user_update_id, blueprint='auth')
+    docs.register(auth.user_del_id, blueprint='auth')
+
     docs.register(auth.login, blueprint='auth')
     docs.register(auth.refresh_token, blueprint='auth')
     docs.register(auth.logout, blueprint='auth')
+
+    docs.register(auth.pub_key, blueprint='auth')
 
     return app

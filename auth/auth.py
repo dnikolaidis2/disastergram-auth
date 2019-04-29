@@ -747,11 +747,7 @@ def login(**kwargs):
 
     token = jwt.encode(payload, private_key, algorithm='RS256')
 
-    resp = jsonify(token=token.decode('utf-8'))
-    # TODO Change
-    resp.headers['Access-Control-Allow-Origin'] = '*'
-
-    return resp
+    return jsonify(token=token.decode('utf-8'))
 
 
 refresh_dict = {'token': fields.String(required=True)}

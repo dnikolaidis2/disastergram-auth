@@ -88,8 +88,21 @@ def user_register(**kwargs):
     db.session.add(new_user)
     db.session.commit()
 
+    user_schema = UserSchema(exclude=['password'])
+    resp = user_schema.jsonify(new_user)
+    resp.status_code = 201
+
     # Return code 201: 'Created'
-    return Response(status=201)
+    return resp
+
+
+# TODO remove dis!!!
+@bp.route('/user/all', methods=['GET'])
+def get_everyone():
+    users = User.query.all()
+
+    user_schema = UserSchema(exclude=['password'])
+    return user_schema.jsonify(users, many=True)
 
 
 # --------------------------------      user/username   -------------------------------------------------
@@ -435,20 +448,33 @@ def user_del(username, token_payload,  **kwargs):
      })
 @bp.route('/user/<int:user_id>')
 @enforce_json()
-@require_auth()
-def user_read_id(user_id, token_payload):
-    user_schema = UserSchema(exclude=['password'])
+def user_read_id(user_id):
+    token = request.args.get('token')
+    if token is None:
+        # Unvalidated GET method. Should not return any sensitive data
+        user_schema = UserSchema(exclude=['password'])
 
-    # validate that user exists
-    req_user = User.query.filter(User.id == user_id).one_or_none()
-    if req_user is None:
-        abort(400, 'User with id {} does not exist'.format(repr(user_id)))
+        # validate that user exists
+        req_user = User.query.filter(User.id == user_id).one_or_none()
+        if req_user is None:
+            abort(400, 'User {} does not exist'.format(repr(user_id)))
 
-    # validate that the token came form the correct user
-    if token_payload['sub'] != req_user.id:
-        abort(403, 'Token subject and username could not be matched')
+        return user_schema.jsonify(req_user)
+    else:
+        # Validated GET method should return both public and sensitive data
+        token_payload = check_token(current_app.config.get('PUBLIC_KEY'), token)
+        user_schema = UserSchema(exclude=['password'])
 
-    return user_schema.jsonify(req_user)
+        # validate that user exists
+        req_user = User.query.filter(User.id == user_id).one_or_none()
+        if req_user is None:
+            abort(400, 'User {} does not exist'.format(repr(user_id)))
+
+        # validate that the token came form the correct user
+        if token_payload['sub'] != req_user.id:
+            abort(403, 'Token subject and username could not be matched')
+
+        return user_schema.jsonify(req_user)
 
 
 @doc(tags=['user'],
@@ -737,7 +763,7 @@ def login(**kwargs):
     payload = {
         'iss': 'auth_server',                               # TODO: WHO ARE WE?
         'sub': req_user.id,
-        'exp': datetime.utcnow() + timedelta(minutes=10),   # 10 minute token
+        'exp': datetime.utcnow() + timedelta(hours=2),      # 2 hour token
         'nbf': datetime.utcnow()
     }
 
@@ -803,7 +829,7 @@ def refresh_token(token_payload, **kwargs):
     payload = {
         'iss': 'auth_server',                               # TODO: WHO ARE WE?
         'sub': token_payload['sub'],
-        'exp': datetime.utcnow() + timedelta(minutes=10),   # 10 minute token
+        'exp': datetime.utcnow() + timedelta(hours=2),      # 2 hour token
         'nbf': datetime.utcnow()
     }
 

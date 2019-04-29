@@ -18,31 +18,34 @@ def enforce_json():
     return decorator
 
 
-def check_token(pub_key):
-    token = ''
-    if request.method == 'GET':
-        # check if token was sent with request
-        if request.args == {}:
-            abort(400, 'Token is not part of request')
-
-        # check if token is not empty
-        token = request.args.get('token')
-        if token is None:
-            abort(400, 'Token field is empty')
-    else:
-        # check json data
-        if request.json.get('token') is None:
-            abort(400, 'Token is not part of request form')
-
-        token = request.json.get('token')
-
+def check_token(pub_key, token=None):
     if pub_key is None:
         abort(500, "Server error occurred while processing request")
 
-    token_payload = {}
+    actual_token = None
+    if token is None:
+        if request.method == 'GET':
+            # check if token was sent with request
+            if request.args == {}:
+                abort(400, 'Token is not part of request')
+
+            # check if token is not empty
+            actual_token = request.args.get('token')
+            if actual_token is None:
+                abort(400, 'Token field is empty')
+        else:
+            # check json data
+            if request.json.get('token') is None:
+                abort(400, 'Token is not part of request form')
+
+            actual_token = request.json.get('token')
+    else:
+        actual_token = token
+
+    token_payload = None
     # verify token
     try:
-        token_payload = jwt.decode(token,
+        token_payload = jwt.decode(actual_token,
                                    pub_key,
                                    leeway=timedelta(days=30),    # give 30 second leeway on time checks
                                    issuer='auth_server',

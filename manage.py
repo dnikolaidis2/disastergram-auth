@@ -3,6 +3,7 @@
 from pathlib import Path
 import docker
 import argparse
+import sys
 
 
 cwd = Path.cwd()
@@ -87,7 +88,8 @@ build_parse.set_defaults(func=build)
 push_parse.set_defaults(func=push)
 
 args = parser.parse_args()
-if isinstance(args.images, str):
-	args.images = [args.images]
+if len(sys.argv) > 1:
+    if isinstance(args.images, str):
+        args.images = [args.images]
 
-args.func(args)
+    args.func(args)

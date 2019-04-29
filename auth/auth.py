@@ -1,8 +1,8 @@
-from flask import Blueprint, Response, current_app, jsonify, abort
+from flask import Blueprint, Response, current_app, jsonify, abort, request
 from auth.models import UserSchema, User
 from auth import db
 from datetime import datetime, timedelta
-from auth.utils import enforce_json, require_auth
+from auth.utils import enforce_json, require_auth, check_token
 from flask_apispec import use_kwargs, doc
 from marshmallow import fields
 import jwt
@@ -134,20 +134,33 @@ def user_register(**kwargs):
      })
 @bp.route('/user/<username>')
 @enforce_json()
-@require_auth()
-def user_read(username, token_payload):
-    user_schema = UserSchema(exclude=['password'])
+def user_read(username):
+    token = request.args.get('token')
+    if token is None:
+        # Unvalidated GET method. Should not return any sensitive data
+        user_schema = UserSchema(exclude=['password'])
 
-    # validate that user exists
-    req_user = User.query.filter(User.username == username).one_or_none()
-    if req_user is None:
-        abort(400, 'User {} does not exist'.format(repr(username)))
+        # validate that user exists
+        req_user = User.query.filter(User.username == username).one_or_none()
+        if req_user is None:
+            abort(400, 'User {} does not exist'.format(repr(username)))
 
-    # validate that the token came form the correct user
-    if token_payload['sub'] != req_user.id:
-        abort(403, 'Token subject and username could not be matched')
+        return user_schema.jsonify(req_user)
+    else:
+        # Validated GET method should return both public and sensitive data
+        token_payload = check_token(current_app.config.get('PUBLIC_KEY'), token)
+        user_schema = UserSchema(exclude=['password'])
 
-    return user_schema.jsonify(req_user)
+        # validate that user exists
+        req_user = User.query.filter(User.username == username).one_or_none()
+        if req_user is None:
+            abort(400, 'User {} does not exist'.format(repr(username)))
+
+        # validate that the token came form the correct user
+        if token_payload['sub'] != req_user.id:
+            abort(403, 'Token subject and username could not be matched')
+
+        return user_schema.jsonify(req_user)
 
 
 user_replace_dict = {'token': fields.Str(required=True),

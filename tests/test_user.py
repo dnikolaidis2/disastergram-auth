@@ -19,7 +19,7 @@ def test_register(auth, app, username, password, response, status_code):
 			with app.app_context():
 				user = User.query.filter(User.username == username).one_or_none()
 				assert user is not None
-				response['id'] = user.id
+				response['id'] = str(user.id.int)
 
 		assert resp_json == response
 

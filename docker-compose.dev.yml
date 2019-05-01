@@ -4,6 +4,8 @@ services:
   auth:
     volumes:
       - .:/user/src/app
+    environment:
+      - AUTH_LEEWAY=31557600
 
   auth-db:
     ports:

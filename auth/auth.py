@@ -177,8 +177,8 @@ def user_read(username):
             abort(400, 'User {} does not exist'.format(repr(username)))
 
         # validate that the token came form the correct user
-        if token_payload['sub'] != req_user.id:
-            abort(403, 'Token subject and username could not be matched')
+        if not check_token_sub(token_payload, req_user):
+            abort(403, 'Token subject could not be verified')
 
         return user_schema.jsonify(req_user)
 
@@ -255,8 +255,8 @@ def user_replace(username, token_payload, **kwargs):
         abort(400, 'User {} does not exist'.format(repr(username)))
 
     # validate that the token came form the correct user
-    if token_payload['sub'] != req_user.id:
-        abort(403, 'Token subject and username could not be matched')
+    if not check_token_sub(token_payload, req_user):
+        abort(403, 'Token subject could not be verified')
 
     # Username has not changed
     if req_user.username == new_username:
@@ -340,8 +340,8 @@ def user_update(username, token_payload, **kwargs):
         abort(400, 'User {} does not exist'.format(repr(username)))
 
     # validate that the token came form the correct user
-    if token_payload['sub'] != req_user.id:
-        abort(403, 'Token subject and username could not be matched')
+    if not check_token_sub(token_payload, req_user):
+        abort(403, 'Token subject could not be verified')
 
     new_username = kwargs.get('new_username')
     if new_username is not None:
@@ -404,8 +404,8 @@ def user_del(username, token_payload,  **kwargs):
         abort(400, 'User {} does not exist'.format(repr(username)))
 
     # validate that the token came form the correct user
-    if token_payload['sub'] != req_user.id:
-        abort(403, 'Token subject and username could not be matched')
+    if not check_token_sub(token_payload, req_user):
+        abort(403, 'Token subject could not be verified')
 
     db.session.delete(req_user)
     db.session.commit()
@@ -461,7 +461,7 @@ def user_read_id(user_id):
         user_schema = UserSchema()
 
         # validate that user exists
-        req_user = User.query.filter(User.id == user_id).one_or_none()
+        req_user = User.query.get(UUID(int=user_id))
         if req_user is None:
             abort(400, 'User {} does not exist'.format(repr(user_id)))
 
@@ -472,13 +472,13 @@ def user_read_id(user_id):
         user_schema = UserSchema()
 
         # validate that user exists
-        req_user = User.query.filter(User.id == user_id).one_or_none()
+        req_user = User.query.get(UUID(int=user_id))
         if req_user is None:
             abort(400, 'User {} does not exist'.format(repr(user_id)))
 
         # validate that the token came form the correct user
-        if token_payload['sub'] != req_user.id:
-            abort(403, 'Token subject and username could not be matched')
+        if not check_token_sub(token_payload, req_user):
+            abort(403, 'Token subject could not be verified')
 
         return user_schema.jsonify(req_user)
 
@@ -545,13 +545,13 @@ def user_replace_id(user_id, token_payload, **kwargs):
     new_password = kwargs.get('new_password')
 
     # Could not find user
-    req_user = User.query.filter(User.id == user_id).one_or_none()
+    req_user = User.query.get(UUID(int=user_id))
     if req_user is None:
         abort(400, 'User {} does not exist'.format(repr(user_id)))
 
     # validate that the token came form the correct user
-    if token_payload['sub'] != req_user.id:
-        abort(403, 'Token subject and username could not be matched')
+    if not check_token_sub(token_payload, req_user):
+        abort(403, 'Token subject could not be verified')
 
     # Username has not changed
     if req_user.username == new_username:
@@ -625,13 +625,13 @@ def user_update_id(user_id, token_payload, **kwargs):
         abort(400, 'Invalid arguments')
 
     # Could not find user
-    req_user = User.query.filter(User.id == user_id).one_or_none()
+    req_user = User.query.get(UUID(int=user_id))
     if req_user is None:
         abort(400, 'User with id {} does not exist'.format(repr(user_id)))
 
     # validate that the token came form the correct user
-    if token_payload['sub'] != req_user.id:
-        abort(403, 'Token subject and username could not be matched')
+    if not check_token_sub(token_payload, req_user):
+        abort(403, 'Token subject could not be verified')
 
     new_username = kwargs.get('new_username')
     if new_username is not None:
@@ -692,13 +692,13 @@ def user_del_id(user_id, token_payload,  **kwargs):
         abort(400, 'Invalid arguments')
 
     # Could not find user
-    req_user = User.query.filter(User.id == user_id).one_or_none()
+    req_user = User.query.get(UUID(int=user_id))
     if req_user is None:
         abort(400, 'User with id {} does not exist'.format(repr(user_id)))
 
     # validate that the token came form the correct user
-    if token_payload['sub'] != req_user.id:
-        abort(403, 'Token subject and username could not be matched')
+    if not check_token_sub(token_payload, req_user):
+        abort(403, 'Token subject could not be verified')
 
     db.session.delete(req_user)
     db.session.commit()
@@ -768,7 +768,7 @@ def login(**kwargs):
 
     payload = {
         'iss': 'auth_server',                               # TODO: WHO ARE WE?
-        'sub': req_user.id,
+        'sub': str(req_user.id.int),
         'exp': datetime.utcnow() + timedelta(hours=2),      # 2 hour token
         'nbf': datetime.utcnow()
     }

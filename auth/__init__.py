@@ -1,5 +1,6 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
 from flask_bcrypt import Bcrypt
 from flask_marshmallow import Marshmallow
 from apispec import APISpec
@@ -11,9 +12,11 @@ from flask_apispec.extension import FlaskApiSpec
 from os import environ, path
 
 db = SQLAlchemy()
+mi = Migrate()
 ma = Marshmallow()
 bc = Bcrypt()
 docs = FlaskApiSpec()
+# zk = None
 
 
 def create_app(test_config=None):
@@ -52,11 +55,19 @@ def create_app(test_config=None):
     # INIT
 
     db.init_app(app)
+    mi.init_app(app,
+                db,
+                directory=environ.get('FLASK_APP_MIGRATIONS', 'migrations'))
     ma.init_app(app)
     bc.init_app(app)
 
     if not app.testing:
         docs.init_app(app)
+
+    # TODO load previous client_id for reconnect
+    # zk = KazooClient(hosts='zoo1:2181,zoo2:2181,zoo3:2181',
+    #                  logger=app.logger)
+    # TODO save client_id for later reconnect
 
     # for some reason when not in development
     # this call fails /shrug
@@ -86,5 +97,18 @@ def create_app(test_config=None):
         docs.register(auth.logout, blueprint='auth')
 
         docs.register(auth.pub_key, blueprint='auth')
+
+    # zk.start()
+    #
+    # try:
+    #     app.logger.info(zk.client_id)
+    #
+    #     auth = zk.exists('/auth')
+    #
+    #     auth_number = app.logger.info(auth.children_count)
+    #     zk.create("/auth/{}".format(auth_number), ephemeral=True, makepath=True)
+    # except ZookeeperError:
+    #     # if the server returns a non-zero error code.
+    #     pass
 
     return app

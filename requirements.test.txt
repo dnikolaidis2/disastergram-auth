@@ -11,3 +11,4 @@ pyjwt==1.7.1
 cryptography==2.6.1
 flask-apispec==0.8.0
 kazoo==2.6.1
+pytest==4.4.1

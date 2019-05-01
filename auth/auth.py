@@ -1,10 +1,11 @@
-from flask import Blueprint, Response, current_app, jsonify, abort, request
+from flask import Blueprint, current_app, jsonify, abort, request
 from auth.models import UserSchema, User
 from auth import db
 from datetime import datetime, timedelta
-from auth.utils import enforce_json, require_auth, check_token
+from auth.utils import enforce_json, require_auth, check_token, check_token_sub
 from flask_apispec import use_kwargs, doc
 from marshmallow import fields
+from uuid import UUID
 import jwt
 
 
@@ -77,6 +78,13 @@ def user_register(**kwargs):
     username = kwargs.get('username')
     password = kwargs.get('password')
 
+    if username == '':
+        abort(400, 'field username cannot be empty')
+
+    if password == '':
+        abort(400, 'field password cannot be empty')
+
+
     # Abort if user already exists
     if User.query.filter(User.username == username).count() != 0:
         abort(400, 'Username {} has already been taken'.format(repr(username)))
@@ -88,8 +96,8 @@ def user_register(**kwargs):
     db.session.add(new_user)
     db.session.commit()
 
-    user_schema = UserSchema(exclude=['password'])
-    resp = user_schema.jsonify(new_user)
+    # return new_user
+    resp = UserSchema().jsonify(new_user)
     resp.status_code = 201
 
     # Return code 201: 'Created'
@@ -97,11 +105,11 @@ def user_register(**kwargs):
 
 
 # TODO remove dis!!!
-@bp.route('/user/all', methods=['GET'])
+@bp.route('/users/all', methods=['GET'])
 def get_everyone():
     users = User.query.all()
 
-    user_schema = UserSchema(exclude=['password'])
+    user_schema = UserSchema()
     return user_schema.jsonify(users, many=True)
 
 
@@ -109,7 +117,7 @@ def get_everyone():
 
 
 @doc(tags=['user'],
-     description='Get user info based on username',
+     description='Get user info based on username. If token is present get all user data else get only public facing info',
      params={
         'username': {
             'description': 'Users username',
@@ -121,7 +129,7 @@ def get_everyone():
             'description': 'Authentication token signed by auth server',
             'in': 'query',
             'type': 'string',
-            'required': True
+            'required': False
         }
      },
      responses={
@@ -146,12 +154,11 @@ def get_everyone():
          }
      })
 @bp.route('/user/<username>')
-@enforce_json()
 def user_read(username):
     token = request.args.get('token')
     if token is None:
         # Unvalidated GET method. Should not return any sensitive data
-        user_schema = UserSchema(exclude=['password'])
+        user_schema = UserSchema()
 
         # validate that user exists
         req_user = User.query.filter(User.username == username).one_or_none()
@@ -162,7 +169,7 @@ def user_read(username):
     else:
         # Validated GET method should return both public and sensitive data
         token_payload = check_token(current_app.config.get('PUBLIC_KEY'), token)
-        user_schema = UserSchema(exclude=['password'])
+        user_schema = UserSchema()
 
         # validate that user exists
         req_user = User.query.filter(User.username == username).one_or_none()
@@ -234,7 +241,7 @@ user_replace_dict = {'token': fields.Str(required=True),
 @use_kwargs(user_replace_dict, apply=True)
 @require_auth()
 def user_replace(username, token_payload, **kwargs):
-    # TODO Accept only User object
+    # TODO Accept only User object?
     # Validate incoming json
     if kwargs.keys() != user_replace_dict.keys():
         abort(400, 'Invalid arguments')
@@ -410,7 +417,7 @@ def user_del(username, token_payload,  **kwargs):
 
 
 @doc(tags=['user'],
-     description='Get user info by user id',
+     description='Get user info by user id. If token is present get all user data else only public facing data',
      params={
         'user_id': {
             'description': 'Users id',
@@ -422,7 +429,7 @@ def user_del(username, token_payload,  **kwargs):
             'description': 'Authentication token signed by auth server',
             'in': 'query',
             'type': 'string',
-            'required': True
+            'required': False
         }
      },
      responses={
@@ -447,12 +454,11 @@ def user_del(username, token_payload,  **kwargs):
          }
      })
 @bp.route('/user/<int:user_id>')
-@enforce_json()
 def user_read_id(user_id):
     token = request.args.get('token')
     if token is None:
         # Unvalidated GET method. Should not return any sensitive data
-        user_schema = UserSchema(exclude=['password'])
+        user_schema = UserSchema()
 
         # validate that user exists
         req_user = User.query.filter(User.id == user_id).one_or_none()
@@ -463,7 +469,7 @@ def user_read_id(user_id):
     else:
         # Validated GET method should return both public and sensitive data
         token_payload = check_token(current_app.config.get('PUBLIC_KEY'), token)
-        user_schema = UserSchema(exclude=['password'])
+        user_schema = UserSchema()
 
         # validate that user exists
         req_user = User.query.filter(User.id == user_id).one_or_none()

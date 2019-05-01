@@ -47,7 +47,7 @@ def check_token(pub_key, token=None):
     try:
         token_payload = jwt.decode(actual_token,
                                    pub_key,
-                                   leeway=timedelta(days=30),    # give 30 second leeway on time checks
+                                   leeway=timedelta(seconds=current_app.config.get('AUTH_LEEWAY', 30)), # give 30 second leeway on time checks
                                    issuer='auth_server',
                                    algorithms='RS256')
     except jwt.InvalidSignatureError:
@@ -67,6 +67,13 @@ def check_token(pub_key, token=None):
         abort(403, 'Invalid token')
 
     return token_payload
+
+
+def check_token_sub(token_payload, user):
+    if token_payload.get('sub', '') == str(user.id.int):
+        return True
+    else:
+        return False
 
 
 def require_auth(pub_key="PUBLIC_KEY"):

@@ -1,6 +1,9 @@
 from auth import db
 from auth import ma
 from auth import bc
+from sqlalchemy.dialects.postgresql import UUID
+from marshmallow import fields
+import uuid
 
 
 class User(db.Model):
@@ -14,7 +17,7 @@ class User(db.Model):
     def set_password(self, password):
         self.password = bc.generate_password_hash(password.__str__()).decode('utf-8')
 
-    def __init__(self, **kwargs):
+    def __init__(self, *args, **kwargs):
         kwargs['password'] = bc.generate_password_hash(kwargs['password'].__str__()).decode('utf-8')
         super(User, self).__init__(**kwargs)
 
@@ -25,7 +28,7 @@ class User(db.Model):
 class UserSchema(ma.ModelSchema):
     class Meta:
         model = User
-
+        fields = ("id", "username")
 
 def init_db(app):
     with app.app_context():

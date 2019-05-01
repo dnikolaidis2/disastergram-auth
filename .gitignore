@@ -4,3 +4,7 @@ auth/__pycache__/
 \.idea/
 
 instance/
+
+migrations/
+
+tests/__pycache__/

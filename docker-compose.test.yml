@@ -1,0 +1,18 @@
+version: "3.7"
+
+services:
+  auth-test:
+    build:
+      context: .
+      dockerfile: Dockerfile-test
+#    volumes:
+#      - .:/user/src/app
+    depends_on:
+      - test-db
+
+  test-db:
+    image: postgres:11
+    ports:
+      - "6001:5432"
+    environment:
+      POSTGRES_PASSWORD: disastergram

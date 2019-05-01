@@ -1,0 +1,17 @@
+FROM python:3.6
+
+WORKDIR /user/src/app
+
+COPY requirements.test.txt .
+RUN pip install --no-cache -r requirements.test.txt
+
+RUN mkdir auth
+RUN mkdir instance
+RUN mkdir tests
+
+COPY ./auth ./auth
+COPY ./instance ./instance
+COPY ./tests ./tests
+COPY setup.cfg .
+
+CMD ["pytest"]

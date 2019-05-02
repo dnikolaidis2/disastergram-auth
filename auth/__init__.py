@@ -6,6 +6,7 @@ from flask_marshmallow import Marshmallow
 from apispec import APISpec
 from apispec.ext.marshmallow import MarshmallowPlugin
 from flask_apispec.extension import FlaskApiSpec
+from datetime import timedelta
 # from kazoo.client import KazooClient
 # # from kazoo.interfaces.IHandler import timeout_exception
 # from kazoo.exceptions import *
@@ -31,7 +32,7 @@ def create_app(test_config=None):
     app.config.from_mapping(
         SQLALCHEMY_DATABASE_URI='postgresql+psycopg2://postgres:disastergram@auth-db/postgres',
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
-        AUTH_LEEWAY=int(environ.get('AUTH_LEEWAY', '30')),  # leeway in seconds
+        AUTH_LEEWAY=timedelta(seconds=int(environ.get('AUTH_LEEWAY', '30'))),  # leeway in seconds
     )
 
     if test_config is None:

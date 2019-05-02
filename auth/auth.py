@@ -1,5 +1,5 @@
 from flask import Blueprint, current_app, jsonify, abort, request
-from auth.models import UserSchema, User
+from auth.models import UserSchema, User, Token, TokenEnum, update_token_table, hash_token_to_uuid
 from auth import db
 from datetime import datetime, timedelta
 from auth.utils import enforce_json, require_auth, check_token, check_token_sub
@@ -83,7 +83,6 @@ def user_register(**kwargs):
 
     if password == '':
         abort(400, 'field password cannot be empty')
-
 
     # Abort if user already exists
     if User.query.filter(User.username == username).count() != 0:
@@ -767,7 +766,7 @@ def login(**kwargs):
         abort(400, 'Incorrect username or password')
 
     payload = {
-        'iss': 'auth_server',                               # TODO: WHO ARE WE?
+        'iss': 'auth',                                      # TODO: WHO ARE WE?
         'sub': str(req_user.id.int),
         'exp': datetime.utcnow() + timedelta(hours=2),      # 2 hour token
         'nbf': datetime.utcnow()
@@ -778,6 +777,12 @@ def login(**kwargs):
         abort(500, "Server error occurred while processing request")
 
     token = jwt.encode(payload, private_key, algorithm='RS256')
+
+    update_token_table(True)
+
+    new_token = Token(token)
+    db.session.add(new_token)
+    db.session.commit()
 
     return jsonify(token=token.decode('utf-8'))
 
@@ -825,15 +830,12 @@ refresh_dict = {'token': fields.String(required=True)}
 @use_kwargs(refresh_dict, apply=True)
 @require_auth()
 def refresh_token(token_payload, **kwargs):
-    # TODO Check if the token is in the blacklist
-    # TODO add previous token to blacklist???
-
     # Validate incoming json
     if kwargs.keys() != refresh_dict.keys():
         abort(400, 'Invalid arguments')
 
     payload = {
-        'iss': 'auth_server',                               # TODO: WHO ARE WE?
+        'iss': 'auth',                                      # TODO: WHO ARE WE?
         'sub': token_payload['sub'],
         'exp': datetime.utcnow() + timedelta(hours=2),      # 2 hour token
         'nbf': datetime.utcnow()
@@ -844,6 +846,10 @@ def refresh_token(token_payload, **kwargs):
         abort(500, "Server error occurred while processing request")
 
     token = jwt.encode(payload, private_key, algorithm='RS256')
+
+    new_token = Token(token)
+    db.session.add(new_token)
+    db.session.commit()
 
     return jsonify(token=token.decode('utf-8'))
 
@@ -886,12 +892,22 @@ logout_dict = {'token': fields.String(required=True)}
 @enforce_json()
 @use_kwargs(logout_dict, apply=True)
 @require_auth()
-def logout(**kwargs):
+def logout(token_payload, **kwargs):
     # Validate incoming json
-    if kwargs.keys() != refresh_dict.keys():
+    if kwargs.keys() != logout_dict.keys():
         abort(400, 'Invalid arguments')
 
-    # TODO do stuff to handle things
+    token = kwargs.get('token')
+
+    token_db = Token.query.get(hash_token_to_uuid(token))
+    if token_db is None:
+        # If this is reached it means that either the user was deleted while having valid tokens
+        # or that there was a major screw up somewhere
+        abort(500, 'Invalid token. Token subject probably does not exist')
+
+    token_db.set_inactive()
+
+    db.session.commit()
 
     return jsonify(status='OK')
 

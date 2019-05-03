@@ -44,6 +44,9 @@ def check_token(pub_key, token=None, check_with_db=True):
             if actual_token == '':
                 abort(400, 'Field token cannot be empty')
     else:
+        if token == '':
+            abort(400, 'Field token cannot be empty')
+
         actual_token = token
 
     token_payload = None

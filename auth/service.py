@@ -1,5 +1,5 @@
 from flask import Blueprint, current_app, jsonify, abort, request
-from auth.models import UserSchema, User, Token, TokenEnum, update_token_table, hash_token_to_uuid
+from auth.models import UserSchema, User, Token, update_token_table, hash_token_to_uuid
 from auth import db
 from datetime import datetime, timedelta
 from auth.utils import enforce_json, require_auth, check_token, check_token_sub
@@ -27,7 +27,7 @@ def server_error_handler(error):
     return jsonify(error=error.description), 500
 
 
-@doc(description="Simple root endpoint for clients to check connection with auth server")
+@doc(description="Simple health check endpoint")
 @bp.route('/')
 def root():
     return jsonify(status='OK')
@@ -43,13 +43,13 @@ register_dict = {'username': fields.Str(required=True),
      description='User registration endpoint',
      params={
         'username': {
-            'description': 'Desired username',
+            'description': 'New users username',
             'in': 'body',
             'type': 'string',
             'required': True
         },
         'password': {
-            'description': 'Users password',
+            'description': 'New users password',
             'in': 'body',
             'type': 'string',
             'required': True
@@ -63,7 +63,12 @@ register_dict = {'username': fields.Str(required=True),
              }
          },
          '201: Created': {
-             "description": "Successfully registered user"
+             "description": "Successfully registered user",
+             "example": {
+                 "id":          "183439473529470444081084392815720982525",
+                 "username":    "doodle"
+             }
+
          }
      })
 @bp.route('/register', methods=['POST'])
@@ -78,6 +83,7 @@ def user_register(**kwargs):
     username = kwargs.get('username')
     password = kwargs.get('password')
 
+    # check if arguments are not empty
     if username == '':
         abort(400, 'field username cannot be empty')
 
@@ -116,7 +122,8 @@ def get_everyone():
 
 
 @doc(tags=['user'],
-     description='Get user info based on username. If token is present get all user data else get only public facing info',
+     description='Get user info based on username. '
+                 'If token is present get all user data else get only public facing info',
      params={
         'username': {
             'description': 'Users username',
@@ -147,8 +154,8 @@ def get_everyone():
          '200: OK': {
              "description": "Query successful",
              "example": {
-                 "id":       1,
-                 "username": "flamboozle"
+                 "id":       "183439473529470444081084392815720982525",
+                 "username": "doodle"
              }
          }
      })
@@ -156,19 +163,15 @@ def get_everyone():
 def user_read(username):
     token = request.args.get('token')
     if token is None:
-        # Unvalidated GET method. Should not return any sensitive data
-        user_schema = UserSchema()
-
         # validate that user exists
         req_user = User.query.filter(User.username == username).one_or_none()
         if req_user is None:
             abort(400, 'User {} does not exist'.format(repr(username)))
 
-        return user_schema.jsonify(req_user)
+        # Unvalidated GET method. Exclude any sensitive data (if any)
+        return UserSchema().jsonify(req_user)
     else:
-        # Validated GET method should return both public and sensitive data
         token_payload = check_token(current_app.config.get('PUBLIC_KEY'), token)
-        user_schema = UserSchema()
 
         # validate that user exists
         req_user = User.query.filter(User.username == username).one_or_none()
@@ -179,7 +182,8 @@ def user_read(username):
         if not check_token_sub(token_payload, req_user):
             abort(403, 'Token subject could not be verified')
 
-        return user_schema.jsonify(req_user)
+        # Validated GET method should return both public and sensitive data
+        return UserSchema().jsonify(req_user)
 
 
 user_replace_dict = {'token': fields.Str(required=True),
@@ -240,13 +244,19 @@ user_replace_dict = {'token': fields.Str(required=True),
 @use_kwargs(user_replace_dict, apply=True)
 @require_auth()
 def user_replace(username, token_payload, **kwargs):
-    # TODO Accept only User object?
     # Validate incoming json
     if kwargs.keys() != user_replace_dict.keys():
         abort(400, 'Invalid arguments')
 
     new_username = kwargs.get('new_username')
     new_password = kwargs.get('new_password')
+
+    # Check if json objects are not empty
+    if new_username == '':
+        abort(400, 'Field new_username cannot be empty')
+
+    if new_password == '':
+        abort(400, 'Field new_password cannot be empty')
 
     # Could not find user
     req_user = User.query.filter(User.username == username).one_or_none()
@@ -328,7 +338,6 @@ user_update_dict = {'token': fields.Str(required=True),
 @use_kwargs(user_update_dict, apply=True)
 @require_auth()
 def user_update(username, token_payload, **kwargs):
-    # TODO Accept only User object
     # Validate incoming json
     if not (2 <= len(kwargs.keys()) <= len(user_replace_dict.keys())):
         abort(400, 'Invalid arguments')
@@ -344,10 +353,14 @@ def user_update(username, token_payload, **kwargs):
 
     new_username = kwargs.get('new_username')
     if new_username is not None:
+        if new_username == '':
+            abort(400, 'Field new_username cannot be empty.')
         req_user.username = new_username
 
     new_password = kwargs.get('new_password')
     if new_password is not None:
+        if new_password == '':
+            abort(400, 'Field new_password cannot be empty.')
         req_user.set_password(new_password)
 
     db.session.commit()
@@ -456,19 +469,15 @@ def user_del(username, token_payload,  **kwargs):
 def user_read_id(user_id):
     token = request.args.get('token')
     if token is None:
-        # Unvalidated GET method. Should not return any sensitive data
-        user_schema = UserSchema()
-
         # validate that user exists
         req_user = User.query.get(UUID(int=user_id))
         if req_user is None:
             abort(400, 'User {} does not exist'.format(repr(user_id)))
 
-        return user_schema.jsonify(req_user)
+        # Unvalidated GET method. Exclude any sensitive data(if any)
+        return UserSchema().jsonify(req_user)
     else:
-        # Validated GET method should return both public and sensitive data
         token_payload = check_token(current_app.config.get('PUBLIC_KEY'), token)
-        user_schema = UserSchema()
 
         # validate that user exists
         req_user = User.query.get(UUID(int=user_id))
@@ -479,7 +488,8 @@ def user_read_id(user_id):
         if not check_token_sub(token_payload, req_user):
             abort(403, 'Token subject could not be verified')
 
-        return user_schema.jsonify(req_user)
+        # Validated GET method should return both public and sensitive data
+        return UserSchema().jsonify(req_user)
 
 
 @doc(tags=['user'],
@@ -535,13 +545,19 @@ def user_read_id(user_id):
 @use_kwargs(user_replace_dict, apply=True)
 @require_auth()
 def user_replace_id(user_id, token_payload, **kwargs):
-    # TODO Accept only User object
     # Validate incoming json
     if kwargs.keys() != user_replace_dict.keys():
         abort(400, 'Invalid arguments')
 
     new_username = kwargs.get('new_username')
     new_password = kwargs.get('new_password')
+
+    # Check if json fields are not empty
+    if new_username == '':
+        abort(400, 'Field new_username cannot be empty')
+
+    if new_password == '':
+        abort(400, 'Field new_password cannot be empty')
 
     # Could not find user
     req_user = User.query.get(UUID(int=user_id))
@@ -618,7 +634,6 @@ def user_replace_id(user_id, token_payload, **kwargs):
 @use_kwargs(user_update_dict, apply=True)
 @require_auth()
 def user_update_id(user_id, token_payload, **kwargs):
-    # TODO Accept only User object
     # Validate incoming json
     if not (2 <= len(kwargs.keys()) <= len(user_replace_dict.keys())):
         abort(400, 'Invalid arguments')
@@ -634,10 +649,14 @@ def user_update_id(user_id, token_payload, **kwargs):
 
     new_username = kwargs.get('new_username')
     if new_username is not None:
+        if new_username == '':
+            abort(400, 'Field new_username cannot be empty')
         req_user.username = new_username
 
     new_password = kwargs.get('new_password')
     if new_password is not None:
+        if new_password == '':
+            abort(400, 'Field new_password cannot be empty')
         req_user.set_password(new_password)
 
     db.session.commit()

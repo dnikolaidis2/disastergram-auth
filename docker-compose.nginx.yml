@@ -11,11 +11,16 @@ services:
       restart_policy:
         condition: on-failure
     environment:
-      - NGINX_WORKER_PROCESSES=4
-      - FLASK_APP_INSTANCE=/app/instance
-      - FLASK_APP_PERSISTENT=/app/persistent
-      - FLASK_APP_MIGRATIONS=/app/persistent/migrations
-      - FLASK_APP=/app/auth
+      POSTGRES_HOST: auth-db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: disastergram
+      BASEURL: http://localhost:5000/
+      DOCKER_HOST: auth:5000
+      NGINX_WORKER_PROCESSES: 4
+      FLASK_APP_INSTANCE: /app/instance
+      FLASK_APP_PERSISTENT: /app/persistent
+      FLASK_APP_MIGRATIONS: /app/persistent/migrations
+      FLASK_APP: /app/auth
     volumes:
       - auth-persistent:/app/persistent
     ports:

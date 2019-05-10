@@ -7,9 +7,6 @@ from apispec import APISpec
 from apispec.ext.marshmallow import MarshmallowPlugin
 from flask_apispec.extension import FlaskApiSpec
 from datetime import timedelta
-# from kazoo.client import KazooClient
-# # from kazoo.interfaces.IHandler import timeout_exception
-# from kazoo.exceptions import *
 from os import environ, path
 
 db = SQLAlchemy()
@@ -17,23 +14,31 @@ mi = Migrate()
 ma = Marshmallow()
 bc = Bcrypt()
 docs = FlaskApiSpec()
-# zk = None
+zk = None
 
 
 def create_app(test_config=None):
-    # Get info from hosts file
-    # hosts_lines = open('/etc/hosts', 'r').readlines()
-    # container_ip, container_id = hosts_lines[-1].strip('\n').split('\t', 1)
-
     # create the app configuration
     app = Flask(__name__,
                 instance_path=environ.get('FLASK_APP_INSTANCE', '/user/src/app/instance'))  # instance path
 
     app.config.from_mapping(
-        SQLALCHEMY_DATABASE_URI='postgresql+psycopg2://postgres:disastergram@auth-db/postgres',
+        POSTGRES_HOST=environ.get('POSTGRES_HOST', ''),
+        POSTGRES_USER=environ.get('POSTGRES_USER', ''),
+        POSTGRES_DATABASE=environ.get('POSTGRES_DATABASE', environ.get('POSTGRES_USER', '')),
+        POSTGRES_PASSWORD=environ.get('POSTGRES_PASSWORD', ''),
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
         AUTH_LEEWAY=timedelta(seconds=int(environ.get('AUTH_LEEWAY', '30'))),  # leeway in seconds
+        BASEURL=environ.get('BASEURL', ''),
+        DOCKER_HOST=environ.get('DOCKER_HOST', ''),
+        DOCKER_BASEURL='http://{}'.format(environ.get('DOCKER_HOST', '')),
+        ZOOKEEPER_CONNECTION_STR=environ.get('ZOOKEEPER_CONNECTION_STR', 'zoo1,zoo2,zoo3'),
     )
+
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql+ psycopg2://{}:{}@{}/{}'.format(app.config['POSTGRES_USER'],
+                                                                                        app.config['POSTGRES_PASSWORD'],
+                                                                                        app.config['POSTGRES_HOST'],
+                                                                                        app.config['POSTGRES_DATABASE'])
 
     if test_config is None:
         # load the instance config if it exists, when not testing
@@ -42,6 +47,26 @@ def create_app(test_config=None):
         app.config.from_mapping(test_config)
 
     if not app.testing:
+        if app.config.get('POSTGRES_HOST') == '':
+            raise Exception('No postgres database host was provided. '
+                            'POSTGRES_HOST environment variable cannot be omitted')
+
+        if app.config.get('POSTGRES_USER') == '':
+            raise Exception('No postgres database user was provided. '
+                            'POSTGRES_USER environment variable cannot be omitted')
+
+        if app.config.get('POSTGRES_PASSWORD') == '':
+            raise Exception('No postgres database user password was provided. '
+                            'POSTGRES_PASSWORD environment variable cannot be omitted')
+
+        if app.config.get('BASEURL') == '':
+            raise Exception('No service base url was provided. '
+                            'BASEURL environment variable cannot be omitted')
+
+        if app.config.get('DOCKER_HOST') == '':
+            raise Exception('No network host within docker was provided. '
+                            'DOCKER_HOST environment variable cannot be omitted')
+
         app.config.update({
             'APISPEC_SPEC': APISpec(
                 title='disastergram-auth',
@@ -56,8 +81,7 @@ def create_app(test_config=None):
     # INIT
 
     db.init_app(app)
-    mi.init_app(app,
-                db,
+    mi.init_app(app, db,
                 directory=environ.get('FLASK_APP_MIGRATIONS', 'migrations'))
     ma.init_app(app)
     bc.init_app(app)
@@ -65,13 +89,10 @@ def create_app(test_config=None):
     if not app.testing:
         docs.init_app(app)
 
-    # TODO load previous client_id for reconnect
-    # zk = KazooClient(hosts='zoo1:2181,zoo2:2181,zoo3:2181',
-    #                  logger=app.logger)
-    # TODO save client_id for later reconnect
-
     # for some reason when not in development
-    # this call fails /shrug
+    # this call fails ¯\_(ツ)_/¯.
+    # Probably some kind of problem with
+    # threading and prefork.
     if app.env == 'development':
         from auth import models
         models.init_db(app)
@@ -98,18 +119,5 @@ def create_app(test_config=None):
         docs.register(service.logout, blueprint='auth')
 
         docs.register(service.pub_key, blueprint='auth')
-
-    # zk.start()
-    #
-    # try:
-    #     app.logger.info(zk.client_id)
-    #
-    #     auth = zk.exists('/auth')
-    #
-    #     auth_number = app.logger.info(auth.children_count)
-    #     zk.create("/auth/{}".format(auth_number), ephemeral=True, makepath=True)
-    # except ZookeeperError:
-    #     # if the server returns a non-zero error code.
-    #     pass
 
     return app

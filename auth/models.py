@@ -93,4 +93,5 @@ def update_token_table(defer_commit=False):
         filter(Token.exp < datetime.utcnow() - current_app.config.get('AUTH_LEEWAY', timedelta(seconds=30))).\
         all()
     [db.session.delete(token) for token in expired_tokens]
-    if not defer_commit: db.session.commit()
+    if not defer_commit:
+        db.session.commit()

@@ -6,6 +6,12 @@ services:
     image: dnikolaidis/disastergram-auth:latest
     volumes:
       - auth-persistent:/user/src/app/persistent
+    environment:
+      POSTGRES_HOST: auth-db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: disastergram
+      BASEURL: http://localhost:5000/
+      DOCKER_HOST: auth:5000
     ports:
     - "5000:5000"
     networks:

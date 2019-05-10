@@ -11,9 +11,14 @@ services:
       restart_policy:
         condition: on-failure
     environment:
-      - WORKERS_PER_CORE=0.5
-      - LOG_LEVEL=info
-      - FLASK_APP_INSTANCE=/app/instance
+      POSTGRES_HOST: auth-db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: disastergram
+      BASEURL: http://localhost:5000/
+      DOCKER_HOST: auth:5000
+      WORKERS_PER_CORE: 0.5
+      LOG_LEVEL: info
+      FLASK_APP_INSTANCE: /app/instance
     ports:
     - "5000:80"
     networks:

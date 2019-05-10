@@ -1,6 +1,6 @@
 from functools import wraps
 from flask import abort, request, current_app
-from datetime import timedelta
+from datetime import timedelta, datetime
 from auth.models import Token, TokenEnum, hash_token_to_uuid, update_token_table
 import jwt
 
@@ -89,8 +89,10 @@ def check_token(pub_key, token=None, check_with_db=True):
 
 
 def check_token_sub(token_payload, user):
-    if token_payload.get('sub', '') == str(user.id.int): return True
-    else: return False
+    if token_payload.get('sub', '') == str(user.id.int):
+        return True
+    else:
+        return False
 
 
 def require_auth(pub_key="PUBLIC_KEY", check_with_db=True):
@@ -106,3 +108,31 @@ def require_auth(pub_key="PUBLIC_KEY", check_with_db=True):
 
         return wrapped
     return decorator
+
+
+def gen_auth_token(sub, update_table=True):
+    payload = {
+        'iss': current_app.config.get('TOKEN_ISSUER', 'auth'),  # TODO: WHO ARE WE?
+        'sub': sub,
+        'exp': datetime.utcnow() + timedelta(hours=2),  # 2 hour token
+        'nbf': datetime.utcnow()
+    }
+
+    private_key = current_app.config.get('PRIVATE_KEY')
+    if private_key is None:
+        abort(500, "Server error occurred while processing request")
+
+    token = jwt.encode(payload, private_key, algorithm='RS256')
+
+    # Updating of token table.
+    # This should be a background process
+    # under normal circumstances but we
+    # have not implemented it yet
+    if update_table:
+        update_token_table(True)
+
+    new_token = Token(token)
+    db.session.add(new_token)
+    db.session.commit()
+
+    return token

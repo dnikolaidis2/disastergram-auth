@@ -1,15 +1,13 @@
 from flask import Blueprint, current_app, jsonify, abort, request
-from auth.models import UserSchema, User, Token, update_token_table, hash_token_to_uuid
+from auth.models import UserSchema, User, Token, hash_token_to_uuid
 from auth import db
-from datetime import datetime, timedelta
-from auth.utils import enforce_json, require_auth, check_token, check_token_sub
+from auth.utils import enforce_json, require_auth, check_token, check_token_sub, gen_auth_token
 from flask_apispec import use_kwargs, doc
 from marshmallow import fields
 from uuid import UUID
-import jwt
 
 
-bp = Blueprint('auth', __name__, url_prefix='/auth')
+bp = Blueprint('auth', __name__, url_prefix='/')
 
 
 @bp.errorhandler(400)
@@ -777,6 +775,12 @@ def login(**kwargs):
     username = kwargs.get('username')
     password = kwargs.get('password')
 
+    if username == '':
+        abort(400, 'Field username cannot be empty')
+
+    if password == '':
+        abort(400, 'Field password cannot be empty')
+
     req_user = User.query.filter(User.username == username).one_or_none()
     if req_user is None:
         abort(400, 'Incorrect username or password')
@@ -784,24 +788,7 @@ def login(**kwargs):
     if not req_user.check_password(password):
         abort(400, 'Incorrect username or password')
 
-    payload = {
-        'iss': 'auth',                                      # TODO: WHO ARE WE?
-        'sub': str(req_user.id.int),
-        'exp': datetime.utcnow() + timedelta(hours=2),      # 2 hour token
-        'nbf': datetime.utcnow()
-    }
-
-    private_key = current_app.config.get('PRIVATE_KEY')
-    if private_key is None:
-        abort(500, "Server error occurred while processing request")
-
-    token = jwt.encode(payload, private_key, algorithm='RS256')
-
-    update_token_table(True)
-
-    new_token = Token(token)
-    db.session.add(new_token)
-    db.session.commit()
+    token = gen_auth_token(str(req_user.id.int))
 
     return jsonify(token=token.decode('utf-8'))
 
@@ -853,22 +840,7 @@ def refresh_token(token_payload, **kwargs):
     if kwargs.keys() != refresh_dict.keys():
         abort(400, 'Invalid arguments')
 
-    payload = {
-        'iss': 'auth',                                      # TODO: WHO ARE WE?
-        'sub': token_payload['sub'],
-        'exp': datetime.utcnow() + timedelta(hours=2),      # 2 hour token
-        'nbf': datetime.utcnow()
-    }
-
-    private_key = current_app.config.get('PRIVATE_KEY')
-    if private_key is None:
-        abort(500, "Server error occurred while processing request")
-
-    token = jwt.encode(payload, private_key, algorithm='RS256')
-
-    new_token = Token(token)
-    db.session.add(new_token)
-    db.session.commit()
+    token = gen_auth_token(token_payload['sub'], False)
 
     return jsonify(token=token.decode('utf-8'))
 

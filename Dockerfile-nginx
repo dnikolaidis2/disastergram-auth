@@ -13,3 +13,5 @@ COPY requirements.txt .
 COPY uwsgi.ini .
 
 RUN pip install --no-cache -r requirements.txt
+
+ENV FLASK_ENV nginx

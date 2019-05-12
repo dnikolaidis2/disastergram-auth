@@ -6,6 +6,8 @@ from flask_marshmallow import Marshmallow
 from apispec import APISpec
 from apispec.ext.marshmallow import MarshmallowPlugin
 from flask_apispec.extension import FlaskApiSpec
+from kazoo.client import KazooClient, KazooRetry
+from auth.zookeeper import AuthZoo
 from datetime import timedelta
 from os import environ, path
 
@@ -32,13 +34,14 @@ def create_app(test_config=None):
         BASEURL=environ.get('BASEURL', ''),
         DOCKER_HOST=environ.get('DOCKER_HOST', ''),
         DOCKER_BASEURL='http://{}'.format(environ.get('DOCKER_HOST', '')),
+        TOKEN_ISSUER=environ.get('JWT_ISSUER', environ.get('BASEURL', 'auth')),
         ZOOKEEPER_CONNECTION_STR=environ.get('ZOOKEEPER_CONNECTION_STR', 'zoo1,zoo2,zoo3'),
     )
 
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql+ psycopg2://{}:{}@{}/{}'.format(app.config['POSTGRES_USER'],
-                                                                                        app.config['POSTGRES_PASSWORD'],
-                                                                                        app.config['POSTGRES_HOST'],
-                                                                                        app.config['POSTGRES_DATABASE'])
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql+psycopg2://{}:{}@{}/{}'.format(app.config['POSTGRES_USER'],
+                                                                                       app.config['POSTGRES_PASSWORD'],
+                                                                                       app.config['POSTGRES_HOST'],
+                                                                                       app.config['POSTGRES_DATABASE'])
 
     if test_config is None:
         # load the instance config if it exists, when not testing
@@ -77,6 +80,20 @@ def create_app(test_config=None):
             'APISPEC_SWAGGER_URL': '/auth/spec',
             'APISPEC_SWAGGER_UI_URL': '/auth/spec-ui',
         })
+
+        # Only do zookeeper for non testing configs for now
+        znode_data = {
+            'TOKEN_ISSUER': app.config['TOKEN_ISSUER'],
+            'BASEURL': app.config['BASEURL'],
+            'DOCKER_HOST': app.config['DOCKER_HOST'],
+            'DOCKER_BASEURL': app.config['DOCKER_BASEURL']
+        }
+
+        global zk
+        zk = AuthZoo(KazooClient(app.config['ZOOKEEPER_CONNECTION_STR'],
+                                 connection_retry=KazooRetry(max_tries=-1),
+                                 logger=app.logger),
+                     znode_data)
 
     # INIT
 

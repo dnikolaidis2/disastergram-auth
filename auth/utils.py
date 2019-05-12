@@ -55,7 +55,7 @@ def check_token(pub_key, token=None, check_with_db=True):
         token_payload = jwt.decode(actual_token,
                                    pub_key,
                                    leeway=current_app.config.get('AUTH_LEEWAY', timedelta(seconds=30)), # give 30 second leeway on time checks
-                                   issuer='auth',
+                                   issuer=current_app.config['TOKEN_ISSUER'],
                                    algorithms='RS256')
     except jwt.InvalidSignatureError:
         # signature of token does not match
@@ -112,7 +112,7 @@ def require_auth(pub_key="PUBLIC_KEY", check_with_db=True):
 
 def gen_auth_token(sub, update_table=True):
     payload = {
-        'iss': current_app.config.get('TOKEN_ISSUER', 'auth'),  # TODO: WHO ARE WE?
+        'iss': current_app.config['TOKEN_ISSUER'],
         'sub': sub,
         'exp': datetime.utcnow() + timedelta(hours=2),  # 2 hour token
         'nbf': datetime.utcnow()

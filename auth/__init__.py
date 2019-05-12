@@ -34,7 +34,7 @@ def create_app(test_config=None):
         BASEURL=environ.get('BASEURL', ''),
         DOCKER_HOST=environ.get('DOCKER_HOST', ''),
         DOCKER_BASEURL='http://{}'.format(environ.get('DOCKER_HOST', '')),
-        TOKEN_ISSUER=environ.get('JWT_ISSUER', environ.get('BASEURL', 'auth')),
+        TOKEN_ISSUER=environ.get('TOKEN_ISSUER', environ.get('BASEURL', 'auth')),
         ZOOKEEPER_CONNECTION_STR=environ.get('ZOOKEEPER_CONNECTION_STR', 'zoo1,zoo2,zoo3'),
     )
 
@@ -42,6 +42,9 @@ def create_app(test_config=None):
                                                                                        app.config['POSTGRES_PASSWORD'],
                                                                                        app.config['POSTGRES_HOST'],
                                                                                        app.config['POSTGRES_DATABASE'])
+
+    # TODO remove!
+    app.config['TOKEN_ISSUER'] = 'auth'
 
     if test_config is None:
         # load the instance config if it exists, when not testing

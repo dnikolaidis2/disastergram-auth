@@ -2,6 +2,7 @@ from functools import wraps
 from flask import abort, request, current_app
 from datetime import timedelta, datetime
 from auth.models import Token, TokenEnum, hash_token_to_uuid, update_token_table
+from auth import db
 import jwt
 
 

@@ -4,8 +4,6 @@ services:
   auth:
     build: .
     image: dnikolaidis/disastergram-auth:latest
-    volumes:
-      - auth-persistent:/user/src/app/persistent
     environment:
       POSTGRES_HOST: auth-db
       POSTGRES_USER: postgres
@@ -76,4 +74,3 @@ networks:
 
 volumes:
   auth-data:
-  auth-persistent:

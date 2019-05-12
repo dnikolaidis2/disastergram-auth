@@ -16,9 +16,11 @@ services:
       POSTGRES_PASSWORD: disastergram
       BASEURL: http://localhost:5000/
       DOCKER_HOST: auth:5000
-      NGINX_WORKER_PROCESSES: 4
       FLASK_APP_INSTANCE: /app/instance
       FLASK_APP: /app/auth
+      FLASK_APP_MIGRATIONS: /app/migrate/migrations
+    volumes:
+      - ./migrate:/app/migrate
     ports:
     - "5000:80"
     depends_on:

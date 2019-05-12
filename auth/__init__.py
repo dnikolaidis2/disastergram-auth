@@ -86,7 +86,8 @@ def create_app(test_config=None):
             'TOKEN_ISSUER': app.config['TOKEN_ISSUER'],
             'BASEURL': app.config['BASEURL'],
             'DOCKER_HOST': app.config['DOCKER_HOST'],
-            'DOCKER_BASEURL': app.config['DOCKER_BASEURL']
+            'DOCKER_BASEURL': app.config['DOCKER_BASEURL'],
+            'PUBLIC_KEY': app.config['PUBLIC_KEY'].decode('utf-8')
         }
 
         global zk

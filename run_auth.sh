@@ -18,8 +18,6 @@ if [[ $1 == "default" ]]; then
 	docker-compose up$DOCKERCOMPOSEARGS
 elif [[ $1 == "test" ]]; then
 	docker-compose -f docker-compose.test.yml up$DOCKERCOMPOSEARGS
-elif [[ $1 == "meinheld" ]]; then
-	docker-compose -f docker-compose.meinheld.yml up$DOCKERCOMPOSEARGS
 elif [[ $1 == "nginx" ]]; then
 	docker-compose -f docker-compose.nginx.yml up$DOCKERCOMPOSEARGS
 else
